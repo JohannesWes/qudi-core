@@ -28,7 +28,7 @@ from PySide2 import QtCore
 from pyqtgraph import ImageItem as _ImageItem
 from pyqtgraph import PlotDataItem as _PlotDataItem
 
-from qudi.util.colordefs import ColorScaleInferno as _Colorscale
+from qudi.util.colordefs import ColorScaleViridis as _Colorscale
 from qudi.util.colordefs import QudiPalette as _QudiPalette
 
 

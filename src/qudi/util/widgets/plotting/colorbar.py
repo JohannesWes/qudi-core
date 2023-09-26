@@ -27,13 +27,13 @@ from enum import IntEnum
 from pyqtgraph import mkPen, mkBrush, PlotWidget, BarGraphItem
 from PySide2 import QtCore, QtGui, QtWidgets
 from qudi.util.widgets.scientific_spinbox import ScienDSpinBox
-from qudi.util.colordefs import ColorScaleInferno
+from qudi.util.colordefs import ColorScaleInferno, ColorScaleViridis
 
 
 class ColorBarItem(BarGraphItem):
     def __init__(self, parent=None, limits=(0, 1), cmap=None, pen=None):
         limits = (float(min(limits)), float(max(limits)))
-        cmap = ColorScaleInferno().colormap if cmap is None else cmap
+        cmap = ColorScaleViridis().colormap if cmap is None else cmap
         pen = mkPen(QtGui.QPen(QtCore.Qt.PenStyle.NoPen)) if pen is None else mkPen(pen)
         grad = QtGui.QLinearGradient(0, 0, 0, 1)
         grad.setCoordinateMode(QtGui.QGradient.ObjectMode)
@@ -117,7 +117,7 @@ class ColorBarWidget(QtWidgets.QWidget):
 
         grad = QtGui.QLinearGradient(0, 0, 0, 1)
         grad.setCoordinateMode(QtGui.QGradient.ObjectMode)
-        for stop, color in zip(*ColorScaleInferno().colormap.getStops('byte')):
+        for stop, color in zip(*ColorScaleViridis().colormap.getStops('byte')):
             grad.setColorAt(stop, QtGui.QColor(*color))
         self._cb_brush = mkBrush(QtGui.QBrush(grad))
 
