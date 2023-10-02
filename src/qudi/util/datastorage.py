@@ -306,7 +306,7 @@ class DataStorageBase(metaclass=ABCMeta):
     _global_metadata_lock = Mutex()
 
     def __init__(self, *, root_dir=None, include_global_metadata=True,
-                 image_format=ImageFormat.PNG):
+                 image_format=ImageFormat.PDF):
         """
         @param str root_dir: optional, root-directory for this storage instance to work in
         @param bool include_global_metadata: optional, flag indicating saving of global metadata
