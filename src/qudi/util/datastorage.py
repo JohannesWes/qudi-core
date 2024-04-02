@@ -506,7 +506,7 @@ class TextDataStorage(DataStorageBase):
                              delimiter=self.delimiter)
 
     def new_file(self, *, timestamp=None, metadata=None, notes=None, nametag=None,
-                 column_headers=None, column_dtypes=None, filename=None):
+                 column_headers=None, column_dtypes=None, filename=None, use_timestamp=True):
         """ Create a new data file on disk and write header string to it. Will overwrite old files
         silently if they have the same path.
 
@@ -526,6 +526,8 @@ class TextDataStorage(DataStorageBase):
         if filename is None:
             filename = get_timestamp_filename(timestamp=timestamp,
                                               nametag=nametag) + self.file_extension
+            if not use_timestamp:
+                filename = f'{nametag}' + self.file_extension
         # Create header
         header = self.create_header(timestamp=timestamp,
                                     metadata=metadata,
@@ -588,7 +590,7 @@ class TextDataStorage(DataStorageBase):
         return rows_written, number_of_columns
 
     def save_data(self, data, *, timestamp=None, metadata=None, notes=None, nametag=None,
-                  column_headers=None, column_dtypes=None, filename=None):
+                  column_headers=None, column_dtypes=None, filename=None, use_timestamp=True):
         """ See: DataStorageBase.save_data() for more information
 
         @param str|list column_headers: optional, data column header strings or single string
@@ -605,7 +607,8 @@ class TextDataStorage(DataStorageBase):
                                              nametag=nametag,
                                              column_headers=column_headers,
                                              column_dtypes=column_dtypes,
-                                             filename=filename)
+                                             filename=filename,
+                                             use_timestamp=use_timestamp)
         # Append data to file
         rows_columns = self.append_file(data, file_path=file_path)
         return file_path, timestamp, rows_columns
