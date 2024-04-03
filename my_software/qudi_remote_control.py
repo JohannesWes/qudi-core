@@ -64,6 +64,7 @@ class TimeSeriesRemoteControl(QudiRemoteControl):
             tm.start_reading()
         except:
             logging.error(f"Couldn't get module instance {self._module_name}.")
+            raise
 
     @log
     def stop_timeseries(self):
@@ -72,6 +73,7 @@ class TimeSeriesRemoteControl(QudiRemoteControl):
             tm.stop_reading()
         except:
             logging.error(f"Couldn't get module instance {self._module_name}.")
+            raise
 
     def close_connection(self):
         self.connection.close()
@@ -89,6 +91,7 @@ class OdmrRemoteControl(QudiRemoteControl):
             self._odmr_module = self.connection.root.exposed_get_module_instance(self._module_name)
         except:
             logging.error(f"Couldn't get module instance {self._module_name}.")
+            raise
 
         # self._scan_power = None
         # self._run_time = None
@@ -102,6 +105,7 @@ class OdmrRemoteControl(QudiRemoteControl):
             self._odmr_module.start_odmr_scan()
         except:
             logging.error(f"Couldn't start ODMR scan.")
+            raise
 
     @log
     def set_odmr_parameters(self, scan_power=13, run_time=10, frequency_start=2.815e9, frequency_stop=2.835e9,
@@ -114,6 +118,7 @@ class OdmrRemoteControl(QudiRemoteControl):
 
         except:
             logging.error(f"Couldn't set ODMR parameters.")
+            raise
 
     @log
     def save_odmr_scan(self, filename, use_timestamp=False, save_thumbnails=False):
@@ -123,6 +128,7 @@ class OdmrRemoteControl(QudiRemoteControl):
             self._odmr_module.save_odmr_scan(filename)
         except:
             logging.error(f"Couldn't save ODMR scan.")
+            raise
 
     @log
     def take_odmr_scan(self, frequency_start, frequency_stop, frequency_points):
