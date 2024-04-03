@@ -125,15 +125,18 @@ class OdmrRemoteControl(QudiRemoteControl):
         try:
             self._odmr_module._save_thumbnails = save_thumbnails
             self._odmr_module._use_timestamp = use_timestamp
-            self._odmr_module.save_odmr_scan(filename)
+            self._odmr_module.save_odmr_data(filename)
         except:
             logging.error(f"Couldn't save ODMR scan.")
             raise
 
     @log
-    def take_odmr_scan(self, frequency_start, frequency_stop, frequency_points):
-        self.set_odmr_parameters(frequency_start=frequency_start, frequency_stop=frequency_stop, frequency_points=frequency_points)
+    def take_odmr_scan(self, filename, min_run_time, frequency_start, frequency_stop, frequency_points):
+        self.set_odmr_parameters(run_time=min_run_time, frequency_start=frequency_start, frequency_stop=frequency_stop, frequency_points=frequency_points)
         self.start_odmr_scan()
+        while self._odmr_module.module_state() == 'locked':
+            time.sleep(min_run_time / 10)
+        self.save_odmr_scan(filename, use_timestamp=False)
 
 
     def close_connection(self):
