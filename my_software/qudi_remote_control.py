@@ -131,13 +131,16 @@ class OdmrRemoteControl(QudiRemoteControl):
             raise
 
     @log
-    def take_odmr_scan(self, filename, min_run_time, frequency_start, frequency_stop, frequency_points):
+    def take_odmr_scan(self, filename, min_run_time, frequency_start, frequency_stop, frequency_points, save_data=True):
         self.set_odmr_parameters(run_time=min_run_time, frequency_start=frequency_start, frequency_stop=frequency_stop, frequency_points=frequency_points)
         self.start_odmr_scan()
         while self._odmr_module.module_state() == 'locked':
             time.sleep(min_run_time / 10)
-        self.save_odmr_scan(filename, use_timestamp=False)
+        if save_data:
+            self.save_odmr_scan(filename, use_timestamp=False)
 
+        # return ODMR data (element 0 is frequency array, element 1 is signal array)
+        return np.array(self._odmr_module._join_signal_data().T[0]), np.array(self._odmr_module._join_signal_data().T[1])
 
     def close_connection(self):
         self.connection.close()
