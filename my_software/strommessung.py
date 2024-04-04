@@ -6,30 +6,116 @@ from pathlib import Path
 import importlib.util
 import sys
 import pickle
+from datetime import datetime
+import time
+import matplotlib.pyplot as plt
+import matplotlib
+import pandas as pd
+import os
 
-path = Path("").absolute()
-path_to_mod = str(path.parents[0] / "johannes_tools" / "data_analysis" / "fitting.py")
+matplotlib.use("Qt5Agg")
+
+from qudi_remote_control import OdmrRemoteControl
+from NGP_control import NGP_instance
+
+# import fitting tools from my tools module
+path_to_mod = "C:\\Users\\aj92uwef\\PycharmProjects\\johannes_tools\\data_analysis\\fitting.py"
 spec = importlib.util.spec_from_file_location("fitting", path_to_mod)
 johannes_tools = importlib.util.module_from_spec(spec)
 sys.modules["fitting"] = johannes_tools
 spec.loader.exec_module(johannes_tools)
-from fitting import evaluate_hyperfine # noqa
+from fitting import fit_hyperfine  # noqa
+
+
+def folder():
+    timenow = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    folderpath = os.path.join("test/", "folder", str(timenow))
+    if not os.path.exists(folderpath):
+        os.makedirs(folderpath)
+        print('Created:', folderpath)
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
 
+def current_measurement(current_min, current_max, current_points, run_time_per_current_point=5,
+                        odmr_ranges=[[2.6368e9, 2.651e9]], odmr_frequency_points=1000):
+    # foldername for current measurement
+    timestamp = datetime.now()
+    foldername = "Current_Measurement_" + timestamp.strftime('%Y%m%d-%H%M-%S') + "/"
 
-from NGP_control import *
+    # setting up the R&S NGP power supply
+    ngp_active_channel = 4
+    ngp = NGP_instance()
+    ngp.activate_channel(ngp_active_channel)
+    ngp.output_on()
+
+    odmr_remote = OdmrRemoteControl()
+
+    # define currents to be applied
+    current_array = np.linspace(current_min, current_max, current_points)
+
+    # data arrays for storing the ODMR and frequency data
+    odmr_voltages_array = np.zeros(shape=(len(odmr_ranges), current_points, odmr_frequency_points))
+    odmr_frequencies_array = np.zeros(shape=(len(odmr_ranges), odmr_frequency_points))
+
+
+    # data array for storing the "middle position/average position" of the 3 hyperfine dips for each odmr_range
+    avg_odmr_positions = np.zeros(shape=(len(odmr_ranges), current_points))
+
+    # -------------------------------------------------------------------------------------------- #
+    # MEASUREMENT
+    # -------------------------------------------------------------------------------------------- #
+
+    for current_index, current in enumerate(current_array):
+        ngp.set_current(ngp_active_channel, current)
+        time.sleep(0.1)
+
+        for odmr_range_index, odmr_range in enumerate(odmr_ranges):
+            filename = foldername + "current_" + str(current) + "A_" + "NVaxis_" + str(odmr_range_index)
+            frequencies, odmr_voltages = odmr_remote.take_odmr_scan(filename, run_time_per_current_point, odmr_range[0],
+                                                                    odmr_range[1],
+                                                                    odmr_frequency_points, save_data=False)
+
+            odmr_frequencies_array[odmr_range_index] = frequencies
+            odmr_voltages_array[odmr_range_index][current_index] = odmr_voltages
+
+    # -------------------------------------------------------------------------------------------- #
+    # FITTING
+    # -------------------------------------------------------------------------------------------- #
+
+    # after taking the data, fit hyperfine spectrum to each array in odmr_scan_data_array
+    for current_index, current in enumerate(current_array):
+        for odmr_range_index, odmr_range in enumerate(odmr_ranges):
+            peak_data, dip_data = fit_hyperfine(odmr_frequencies_array[odmr_range_index],
+                                                odmr_voltages_array[odmr_range_index][current_index],
+                                                min_feature_amplitude=0.01, min_feature_height=0.005,
+                                                feature_fit_range=0.5e6, testing=False)
+
+            peak_positions, dip_positions = np.array(peak_data)[:, 0], np.array(dip_data)[:, 0]
+            peak_uncertainties, dip_uncertainties = np.array(peak_data)[:, 1], np.array(dip_data)[:, 1]
+
+            avg_odmr_positions[odmr_range_index][current_index] = (np.mean(peak_positions) + np.mean(dip_positions)) / 2
+
+            # uncertainty
+
+    ngp.close()
+    print('NGP closed')
+
+    return current_array, avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array
+
 
 if __name__ == '__main__':
-    ngp = NGP_instance()
 
-    ngp.set_channel(3, 0, 0.15)
+    current_min, current_max, current_points = 0.001, 0.05, 25
+    run_time_per_current_point = 5
 
-    ngp.output_on()
-    ngp.deactivate_channel(1)
-    ngp.deactivate_channel(2)
-    ngp.deactivate_channel(3)
-    ngp.output_off()
-    ngp.driver.close()
-    print('NGP closed')
+    # for some reason, the odmr ranges must be passed as floats and NOT as numpy floats. This probably is some problem
+    # connected to rpyc in some way
+    odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9], [2.63e9, 2.66e9], [2.66e9, 2.68e9], [2.69e9, 2.715e9], [2.715e9, 2.74e9], [2.79e9, 2.815e9],[2.815e9, 2.835e9]]
+    current_array, avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array = current_measurement(current_min, current_max, current_points, odmr_ranges=odmr_ranges, run_time_per_current_point=run_time_per_current_point)
+
+    columns = {f"odmr_peak_pos_{i}[Hz]": avg_odmr_positions[i] for i in range(len(avg_odmr_positions))}
+    data = pd.DataFrame({"current[A]": current_array} | columns)
+    data.to_csv("current_measurement_" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) +"_.csv", index=False, sep="\t")
+
+    print('Measurement finished')
