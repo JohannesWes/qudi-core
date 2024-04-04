@@ -4,6 +4,7 @@ from scipy.constants import mu_0
 import pyvisa as visa
 import logging
 import functools
+import time
 
 def logger():
     return logging.getLogger(__name__)
@@ -81,6 +82,22 @@ class NGP_instance():
             logging.error(f"Could not set current to {curr} on channel {chn}")
             raise
 
+    def get_voltage(self, chn):
+        try:
+            self.driver.instrument.select.set(chn)
+            return self.driver.source.voltage.level.immediate.get_amplitude()
+        except:
+            logging.error(f"Could not get voltage on channel {chn}")
+            raise
+
+    def get_current(self, chn):
+        try:
+            self.driver.instrument.select.set(chn)
+            return self.driver.source.current.level.immediate.get_amplitude()
+        except:
+            logging.error(f"Could not get current on channel {chn}")
+            raise
+
     def activate_channel(self, chn):
         try:
             self.driver.instrument.select.set(chn)
@@ -99,7 +116,7 @@ class NGP_instance():
 
     def deactivate_all_channels(self):
         try:
-            for chn in range(1, 4):
+            for chn in range(1, 4+1):
                 self.deactivate_channel(chn)
         except:
             logging.error(f"Could not deactivate all channels.")
