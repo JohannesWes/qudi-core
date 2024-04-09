@@ -110,18 +110,18 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
 
 
 if __name__ == '__main__':
-    current_min, current_max, current_points = 0.001, 0.3, 2
-    run_time_per_current_point = 5
+    current_min, current_max, current_points = 0.001, 0.3, 500
+    run_time_per_odmr_scan = 60
 
     # for some reason, the odmr ranges must be passed as floats and NOT as numpy floats. This probably is some problem
     # connected to rpyc in some way
     odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9], [2.63e9, 2.66e9], [2.66e9, 2.68e9], [2.69e9, 2.715e9],
                    [2.715e9, 2.74e9], [2.79e9, 2.815e9], [2.815e9, 2.835e9]]
     current_array, avg_odmr_positions, uncertainty_avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array = current_measurement(current_min,
-                                                                                                         current_max,
-                                                                                                         current_points,
-                                                                                                         odmr_ranges=odmr_ranges,
-                                                                                                         run_time_per_current_point=run_time_per_current_point)
+                                                                                                                                         current_max,
+                                                                                                                                         current_points,
+                                                                                                                                         odmr_ranges=odmr_ranges,
+                                                                                                                                         run_time_per_current_point=run_time_per_odmr_scan)
 
     columns = {f"odmr_peak_pos_{i}[Hz]": avg_odmr_positions[i] for i in range(len(avg_odmr_positions))}
     data = pd.DataFrame({"current[A]": current_array} | columns)
