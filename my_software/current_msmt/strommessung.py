@@ -1,22 +1,16 @@
 import numpy as np
-from scipy.constants import mu_0
-from RsNgx import *
-import pyvisa as visa
-from pathlib import Path
 import importlib.util
 import sys
-import pickle
 from datetime import datetime
 import time
-import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
 import os
 
 matplotlib.use("Qt5Agg")
 
-from qudi_remote_control import OdmrRemoteControl
-from NGP_control import NGP_instance
+from my_software.automation.qudi_remote_control import OdmrRemoteControl
+from my_software.automation.NGP_control import NGP_instance
 
 # import fitting tools from my tools module
 path_to_mod = "C:\\Users\\aj92uwef\\PycharmProjects\\johannes_tools\\data_analysis\\fitting.py"
@@ -29,7 +23,7 @@ from fitting import fit_hyperfine  # noqa
 
 def folder():
     timenow = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    folderpath = os.path.join("test/", "folder", str(timenow))
+    folderpath = os.path.join("../test/", "folder", str(timenow))
     if not os.path.exists(folderpath):
         os.makedirs(folderpath)
         print('Created:', folderpath)
@@ -74,7 +68,7 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
             filename = foldername + "current_" + str(current) + "A_" + "NVaxis_" + str(odmr_range_index)
             frequencies, odmr_voltages = odmr_remote.take_odmr_scan(filename, run_time_per_current_point, odmr_range[0],
                                                                     odmr_range[1],
-                                                                    odmr_frequency_points, save_data=False)
+                                                                    odmr_frequency_points, save_data=True)
 
             odmr_frequencies_array[odmr_range_index] = frequencies
             odmr_voltages_array[odmr_range_index][current_index] = odmr_voltages
@@ -82,6 +76,11 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
     # -------------------------------------------------------------------------------------------- #
     # FITTING
     # -------------------------------------------------------------------------------------------- #
+    try:
+        np.save("save_odmr_frequencies_array", odmr_frequencies_array)
+        np.save("save_odmr_voltages_array", odmr_voltages_array)
+    except:
+        pass
 
     # after taking the data, fit hyperfine spectrum to each array in odmr_scan_data_array
     for current_index, current in enumerate(current_array):
@@ -111,14 +110,13 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
 
 
 if __name__ == '__main__':
-
-    current_min, current_max, current_points = 0.001, 0.05, 25
+    current_min, current_max, current_points = 0.001, 0.3, 2
     run_time_per_current_point = 5
 
     # for some reason, the odmr ranges must be passed as floats and NOT as numpy floats. This probably is some problem
     # connected to rpyc in some way
-    odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9], [2.63e9, 2.66e9], [2.66e9, 2.68e9], [2.69e9, 2.715e9], [2.715e9, 2.74e9], [2.79e9, 2.815e9],[2.815e9, 2.835e9]]
-    current_array, avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array = current_measurement(current_min, current_max, current_points, odmr_ranges=odmr_ranges, run_time_per_current_point=run_time_per_current_point)
+    odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9], [2.63e9, 2.66e9], [2.66e9, 2.68e9], [2.69e9, 2.715e9],
+                   [2.715e9, 2.74e9], [2.79e9, 2.815e9], [2.815e9, 2.835e9]]
     current_array, avg_odmr_positions, uncertainty_avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array = current_measurement(current_min,
                                                                                                          current_max,
                                                                                                          current_points,

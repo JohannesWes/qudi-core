@@ -9,7 +9,7 @@ matplotlib.use("Qt5Agg")
 def main(filename="current_measurement_2024-04-08_134356_.csv"):
     data = pd.read_csv
 
-    data = pd.read_csv("current_measurement_2024-04-08_134356_.csv", sep="\t", header=0)
+    data = pd.read_csv("../current_measurement_2024-04-08_134356_.csv", sep="\t", header=0)
     columns = data.columns
 
     # OPX FM carrier frequency. We perform FM around 200 MHz. This is mixed with the LO frequency. We use the lower

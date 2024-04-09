@@ -5,6 +5,8 @@ import matplotlib
 import pandas as pd
 import pickle
 
+from my_software.automation.qudi_remote_control import OdmrRemoteControl
+
 matplotlib.use("Qt5Agg")
 
 # IP address of the host computer where the Data Servers run
