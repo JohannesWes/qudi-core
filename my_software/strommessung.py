@@ -58,9 +58,9 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
     odmr_voltages_array = np.zeros(shape=(len(odmr_ranges), current_points, odmr_frequency_points))
     odmr_frequencies_array = np.zeros(shape=(len(odmr_ranges), odmr_frequency_points))
 
-
     # data array for storing the "middle position/average position" of the 3 hyperfine dips for each odmr_range
     avg_odmr_positions = np.zeros(shape=(len(odmr_ranges), current_points))
+    uncertainty_avg_odmr_positions = np.zeros(shape=(len(odmr_ranges), current_points))
 
     # -------------------------------------------------------------------------------------------- #
     # MEASUREMENT
@@ -94,14 +94,20 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
             peak_positions, dip_positions = np.array(peak_data)[:, 0], np.array(dip_data)[:, 0]
             peak_uncertainties, dip_uncertainties = np.array(peak_data)[:, 1], np.array(dip_data)[:, 1]
 
-            avg_odmr_positions[odmr_range_index][current_index] = (np.mean(peak_positions) + np.mean(dip_positions)) / 2
+            num_features = len(peak_positions) + len(dip_positions)
+            try:
+                avg_odmr_positions[odmr_range_index][current_index] = (np.mean(peak_positions) + np.mean(dip_positions)) / 2
+                uncertainty_avg_odmr_positions[odmr_range_index][current_index] = np.sqrt(
+                    1 / num_features ** 2 * (np.sum(peak_uncertainties ** 2) + np.sum(dip_uncertainties ** 2)))
+            except:
+                pass
 
             # uncertainty
 
     ngp.close()
     print('NGP closed')
 
-    return current_array, avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array
+    return current_array, avg_odmr_positions, uncertainty_avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array
 
 
 if __name__ == '__main__':
@@ -113,9 +119,20 @@ if __name__ == '__main__':
     # connected to rpyc in some way
     odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9], [2.63e9, 2.66e9], [2.66e9, 2.68e9], [2.69e9, 2.715e9], [2.715e9, 2.74e9], [2.79e9, 2.815e9],[2.815e9, 2.835e9]]
     current_array, avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array = current_measurement(current_min, current_max, current_points, odmr_ranges=odmr_ranges, run_time_per_current_point=run_time_per_current_point)
+    current_array, avg_odmr_positions, uncertainty_avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array = current_measurement(current_min,
+                                                                                                         current_max,
+                                                                                                         current_points,
+                                                                                                         odmr_ranges=odmr_ranges,
+                                                                                                         run_time_per_current_point=run_time_per_current_point)
 
     columns = {f"odmr_peak_pos_{i}[Hz]": avg_odmr_positions[i] for i in range(len(avg_odmr_positions))}
     data = pd.DataFrame({"current[A]": current_array} | columns)
-    data.to_csv("current_measurement_" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) +"_.csv", index=False, sep="\t")
+    data.to_csv("current_measurement_" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False,
+                sep="\t")
+
+    columns_uncertainty = {f"odmr_peak_pos_uncertainty_{i}[Hz]": uncertainty_avg_odmr_positions[i] for i in range(len(uncertainty_avg_odmr_positions))}
+    data_uncertainty = pd.DataFrame({"current[A]": current_array} | columns_uncertainty)
+    data_uncertainty.to_csv("current_measurement_uncertainty" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False,
+                sep="\t")
 
     print('Measurement finished')
