@@ -11,14 +11,7 @@ matplotlib.use("Qt5Agg")
 
 from my_software.automation.qudi_remote_control import OdmrRemoteControl
 from my_software.automation.NGP_control import NGP_instance
-
-# import fitting tools from my tools module
-path_to_mod = "C:\\Users\\aj92uwef\\PycharmProjects\\johannes_tools\\data_analysis\\fitting.py"
-spec = importlib.util.spec_from_file_location("fitting", path_to_mod)
-johannes_tools = importlib.util.module_from_spec(spec)
-sys.modules["fitting"] = johannes_tools
-spec.loader.exec_module(johannes_tools)
-from fitting import fit_hyperfine  # noqa
+from my_software.tools.fitting import fit_hyperfine
 
 
 def folder():
