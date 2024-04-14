@@ -1,52 +1,70 @@
-
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
+from matplotlib.pyplot import draw
 import pandas as pd
 
 matplotlib.use("Qt5Agg")
 
-def main(filename="current_measurement_2024-04-08_134356_.csv"):
-    data = pd.read_csv
+from strom_analyse_kalibration import fit_calibration_curve
+#from my_software.tools.plotting.plotting
 
-    data = pd.read_csv("current_measurement_2024-04-10_065800_.csv", sep="\t", header=0)
-    columns = data.columns
+
+def load_frequency_data(filename=None, sep=","):
+    df = pd.read_csv(filename, sep=sep, header=0)
+    columns = df.columns
+    time_column_label = columns[0]
+
+    # convert time (str) in first column to datetime object
+    df[time_column_label] = pd.to_datetime(df[time_column_label])
+    relative_time_in_seconds = [(df[time_column_label][i] - df[time_column_label][0]).total_seconds() for i in range(len(df[time_column_label]))]
 
     # OPX FM carrier frequency. We perform FM around 200 MHz. This is mixed with the LO frequency. We use the lower
     # sideband (f_LO - f_FM) -> Need to correct frequency by 200 MHz
-    data[columns[1:]] += 200e6
+    df[columns[1:]] += 200e6
 
-    num_nv_directions = 4
-    fig_frequencies, ax_frequencies = plt.subplots(2, num_nv_directions)
+    return np.array(relative_time_in_seconds), np.array(df[columns[1:]])[:, 0]
 
-    colors = {0: "red", 1: "blue", 2: "green", 3: "orange"}
+# def current_from_frequency(frequencies, id_odmr_dip=0):
 
-    row_0 = ax_frequencies[0]
-    row_1 = ax_frequencies[1]
-    for i_col, ax in enumerate(row_0):
-        ax.scatter(data["current[A]"], data[columns[1+i_col]]/1e6, s=5, alpha=0.4, color="black")
-        ax.set_xlabel("Current [A]")
-        ax.set_ylabel("Frequency [MHz]")
-        ax.set_title("NV direction " + str(i_col+1) + " left side", color=colors[i_col])
-        ax.ticklabel_format(useOffset=False)
-        ax.grid()
-    for i_col, ax in enumerate(row_1):
-        ax.scatter(data["current[A]"], data[columns[-1-i_col]]/1e6, s=5, alpha=0.4, color="black")
-        ax.set_xlabel("Current [A]")
-        ax.set_ylabel("Frequency [MHz]")
-        ax.set_title("NV direction " + str(i_col+1) + " right side", color=colors[i_col])
-        ax.ticklabel_format(useOffset=False)
-        ax.grid()
 
+def get_currents_from_frequencies(frequencies, id_odmr_dip=0):
+
+    calibration_frequencies, calibration_currents = fit_calibration_curve()
+    interpolated_currents = np.interp(np.array(frequencies), calibration_frequencies, calibration_currents)
+
+    return interpolated_currents
+
+
+def plot_frequencies_and_current_over_time(times, frequencies, currents, sep=","):
+
+    # PLOTS CURRENTS OVER TIME
+    fig_current, ax_current = plt.subplots()
+    ax_current.scatter(times, currents*1000, s=5, alpha=0.4, color="red")
+    ax_current.set_xlabel("Time [s]")
+    ax_current.set_ylabel("Current [mA]")
+    ax_current.set_title("Current over time")
+    fig_current.tight_layout()
+    draw()
+
+
+    # PLOTS FREQUENCIES OVER TIME
+    fig_frequencies, ax_frequencies = plt.subplots()
+
+    ax_frequencies.scatter(times, frequencies/1e6, s=5, alpha=0.4, color="black")
+    ax_frequencies.set_xlabel("Time [s]")
+    ax_frequencies.set_ylabel("Frequency [MHz]")
+    ax_frequencies.set_title("Frequency over time")
     fig_frequencies.tight_layout()
+    draw()
 
     plt.show()
-    #plt.show()
 
-    # for column in data.columns[1:]:
-    #     ax.scatter(data["current[A]"], data[column], label=column)
 
 
 if __name__ == "__main__":
-    main()
+    times, frequencies = load_frequency_data("data/battery_current_measurement_2024-04-12_180114_.csv")
+
+    interpolated_currents = get_currents_from_frequencies(frequencies)
+
+    plot_frequencies_and_current_over_time(times, frequencies, interpolated_currents)
