@@ -112,15 +112,18 @@ def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array,
 
 
 if __name__ == '__main__':
-    current_min, current_max, current_points = 0.001, 0.3, 1
+    current_min, current_max, current_points = 0.001, 0.2, 10
     current_array = np.linspace(current_min, current_max, current_points)
-    run_time_per_odmr_scan = 2
+    run_time_per_odmr_scan = 10
 
     # for some reason, the odmr ranges must be passed as floats and NOT as numpy floats. This probably is some problem
     # connected to rpyc in some way
     odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9], [2.63e9, 2.66e9], [2.66e9, 2.68e9], [2.69e9, 2.715e9],
                    [2.715e9, 2.74e9], [2.79e9, 2.815e9], [2.815e9, 2.835e9]]
     # odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9]]  # for testing
+    #odmr_ranges = [[2.64e9, 2.65e9]]
+    odmr_ranges = [[2.63e9, 2.66e9],
+                   [2.715e9, 2.74e9]]
 
     print("Measurement starting at " + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
