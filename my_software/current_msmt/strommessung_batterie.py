@@ -117,12 +117,12 @@ if __name__ == '__main__':
 
     columns = {f"odmr_peak_pos_{i}[Hz]": avg_odmr_positions[i] for i in range(len(avg_odmr_positions))}
     data = pd.DataFrame({"times": times} | columns)
-    data.to_csv("current_measurement_" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False)
+    data.to_csv("battery_current_measurement_" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False)
 
     columns_uncertainty = {f"odmr_peak_pos_uncertainty_{i}[Hz]": uncertainty_avg_odmr_positions[i] for i in
                            range(len(uncertainty_avg_odmr_positions))}
     data_uncertainty = pd.DataFrame({"times": times} | columns_uncertainty)
     data_uncertainty.to_csv(
-        "current_measurement_uncertainty" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False)
+        "battery_current_measurement_uncertainty" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False)
 
     print('Measurement finished')
