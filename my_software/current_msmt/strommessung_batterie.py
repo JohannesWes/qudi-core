@@ -68,7 +68,7 @@ def current_measurement(num_current_measurements, run_time_per_odmr_scan=5,
 
 def fit_avg_position_lock_in_hyperfine(odmr_ranges, num_current_measurements, odmr_frequencies_array, odmr_voltages_array, min_feature_amplitude=0.01,
                                        min_feature_height=0.005,
-                                       feature_fit_range=0.3e6, testing_flag=True):
+                                       feature_fit_range=0.5e6, testing_flag=False):
 
     # data array for storing the "middle position/average position" of the 3 hyperfine dips for each odmr_range
     avg_odmr_pos = np.zeros(shape=(len(odmr_ranges), num_current_measurements))
