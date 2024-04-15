@@ -56,8 +56,9 @@ def current_measurement(num_current_measurements, run_time_per_odmr_scan=5,
 
     # additionally save raw data in numpy arrays
     try:
-        np.save("save_odmr_frequencies_array", odmr_frequencies_array)
-        np.save("save_odmr_voltages_array", odmr_voltages_array)
+        np.save(folder_name + "save_odmr_times_array", odmr_frequencies_array)
+        np.save(folder_name + "save_odmr_frequencies_array", odmr_frequencies_array)
+        np.save(folder_name + "save_odmr_voltages_array", odmr_voltages_array)
     except:
         pass
 
