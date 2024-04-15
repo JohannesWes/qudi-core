@@ -24,7 +24,7 @@ def folder():
 # -------------------------------------------------------------------------------------------------------------------- #
 
 def current_measurement(num_current_measurements, run_time_per_odmr_scan=5,
-                        odmr_ranges=[[2.6368e9, 2.651e9]], odmr_frequency_points=1000):
+                        odmr_ranges=[[2.63e9, 2.66e9]], odmr_frequency_points=1000):
     # folder_name for current measurement
     timestamp = datetime.now()
     folder_name = "Current_Measurement_" + timestamp.strftime('%Y%m%d-%H%M-%S') + "/"
