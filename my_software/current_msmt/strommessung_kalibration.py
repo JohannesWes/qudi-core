@@ -25,7 +25,7 @@ def folder():
 # -------------------------------------------------------------------------------------------------------------------- #
 
 def current_measurement(current_min, current_max, current_points, run_time_per_current_point=5,
-                        odmr_ranges=[[2.6368e9, 2.651e9]], odmr_frequency_points=1000):
+                        odmr_ranges=[[2.64e9, 2.65e9]], odmr_frequency_points=500):
     # folder_name for current measurement
     timestamp = datetime.now()
     folder_name = "KALIBRATION_Current_Measurement_" + timestamp.strftime('%Y%m%d-%H%M-%S') + "/"
@@ -77,9 +77,9 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
     return odmr_frequencies_array, odmr_voltages_array
 
 
-def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array, min_feature_amplitude=0.01,
+def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array, min_feature_amplitude=0.008,
         min_feature_height=0.005,
-        feature_fit_range=0.3e6, testing_flag=True):
+        feature_fit_range=0.5e6, testing_flag=False):
     # data array for storing the "middle position/average position" of the 3 hyperfine dips for each odmr_range
     avg_odmr_pos = np.zeros(shape=(len(odmr_ranges), current_points))
     uncertainty_avg_odmr_pos = np.zeros(shape=(len(odmr_ranges), current_points))
