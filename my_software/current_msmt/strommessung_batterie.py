@@ -98,13 +98,15 @@ def fit_avg_position_lock_in_hyperfine(odmr_ranges, num_current_measurements, od
 
 
 if __name__ == '__main__':
-    current_min, current_max, num_current_measurements = 0.001, 0.3, 500
-    run_time_per_odmr_scan = 1
+    num_current_measurements = 100
+    run_time_per_odmr_scan = 5
 
     # for some reason, the odmr ranges must be passed as floats and NOT as numpy floats. This probably is some problem
     # connected to rpyc in some way
-    odmr_ranges = [[2.639e9, 2.651e9],[2.72e9, 2.732e9]]
-    odmr_frequency_points = 500
+
+    # this is the measurement range used in the calibration measurement
+    odmr_ranges = [[2.63e9, 2.66e9]]
+    odmr_frequency_points = 1000
 
     print("Measurement starting at " + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     times, odmr_frequencies_array, odmr_voltages_array = current_measurement(num_current_measurements, run_time_per_odmr_scan=run_time_per_odmr_scan,
