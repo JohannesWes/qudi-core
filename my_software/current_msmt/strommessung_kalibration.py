@@ -92,8 +92,12 @@ def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array,
                                                 min_feature_height=min_feature_height,
                                                 feature_fit_range=feature_fit_range, testing=testing_flag)
 
-            peak_positions, dip_positions = np.array(peak_data)[:, 0], np.array(dip_data)[:, 0]
-            peak_uncertainties, dip_uncertainties = np.array(peak_data)[:, 1], np.array(dip_data)[:, 1]
+            try:
+                peak_positions, dip_positions = np.array(peak_data)[:, 0], np.array(dip_data)[:, 0]
+                peak_uncertainties, dip_uncertainties = np.array(peak_data)[:, 1], np.array(dip_data)[:, 1]
+            except:
+                peak_positions, dip_positions = [np.NAN, np.NAN, np.NAN], [np.NAN, np.NAN, np.NAN]
+                peak_uncertainties, dip_uncertainties = [np.NAN, np.NAN, np.NAN], [np.NAN, np.NAN, np.NAN]
 
             num_features = len(peak_positions) + len(dip_positions)
             try:
