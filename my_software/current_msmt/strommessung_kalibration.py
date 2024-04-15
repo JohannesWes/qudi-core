@@ -28,7 +28,7 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
                         odmr_ranges=[[2.6368e9, 2.651e9]], odmr_frequency_points=1000):
     # folder_name for current measurement
     timestamp = datetime.now()
-    folder_name = "Current_Measurement_" + timestamp.strftime('%Y%m%d-%H%M-%S') + "/"
+    folder_name = "KALIBRATION_Current_Measurement_" + timestamp.strftime('%Y%m%d-%H%M-%S') + "/"
 
     # setting up the R&S NGP power supply
     ngp_active_channel = 4
