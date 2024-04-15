@@ -7,6 +7,7 @@ import pandas as pd
 matplotlib.use("Qt5Agg")
 
 from strom_analyse_kalibration import fit_calibration_curve
+from my_software.tools.fitting import quadratic
 #from my_software.tools.plotting.plotting
 
 
@@ -28,12 +29,14 @@ def load_frequency_data(filename=None, sep=","):
 # def current_from_frequency(frequencies, id_odmr_dip=0):
 
 
-def get_currents_from_frequencies(frequencies, id_odmr_dip=0):
+def get_currents_from_frequencies(frequencies):
 
-    calibration_frequencies, calibration_currents = fit_calibration_curve()
-    interpolated_currents = np.interp(np.array(frequencies), calibration_frequencies, calibration_currents)
+    calibration_frequencies, calibration_currents, p_a, p_b, p_c = fit_calibration_curve()
+    y = frequencies
+    fitted_currents = +np.sqrt(-4*p_a*p_c + 4*p_a*y + p_b**2)/(2 * p_a) - p_b / (2 * p_a)
+    #fitted_currents = np.interp(np.array(frequencies), calibration_frequencies, calibration_currents)
 
-    return interpolated_currents
+    return fitted_currents
 
 
 def plot_frequencies_and_current_over_time(times, frequencies, currents, sep=","):
@@ -68,3 +71,5 @@ if __name__ == "__main__":
     interpolated_currents = get_currents_from_frequencies(frequencies)
 
     plot_frequencies_and_current_over_time(times, frequencies, interpolated_currents)
+
+    print("Not working correctly yet. Either, the current ports were swapped compared to calibration measurement.")
