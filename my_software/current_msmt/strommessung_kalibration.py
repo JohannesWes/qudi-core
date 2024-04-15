@@ -90,7 +90,7 @@ def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array,
                                                 odmr_voltages_array[odmr_range_index][current_index],
                                                 min_feature_amplitude=min_feature_amplitude,
                                                 min_feature_height=min_feature_height,
-                                                feature_fit_range=feature_fit_range, testing=testing_flag)
+                                                feature_fit_range=feature_fit_range, plot_fitting=testing_flag)
 
             try:
                 peak_positions, dip_positions = np.array(peak_data)[:, 0], np.array(dip_data)[:, 0]
