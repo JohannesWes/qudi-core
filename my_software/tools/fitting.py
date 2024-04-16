@@ -7,6 +7,8 @@ import pandas as pd
 def parabola(x, x0, a, c):
     return a * (x - x0) ** 2 + c
 
+def quadratic(x, a, b, c):
+    return a * x ** 2 + b * x + c
 
 def smooth(y, box_pts):
     box = np.ones(box_pts) / box_pts

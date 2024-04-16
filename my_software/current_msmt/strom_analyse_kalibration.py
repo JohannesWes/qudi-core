@@ -5,7 +5,10 @@ from matplotlib.pyplot import draw
 from matplotlib.ticker import FormatStrFormatter
 import pandas as pd
 from scipy.signal import savgol_filter
+
 from lmfit.models import LinearModel, QuadraticModel
+
+from my_software.tools.fitting import quadratic
 
 matplotlib.use("Qt5Agg")
 
@@ -66,6 +69,22 @@ def fit_calibration_curve(filename="data/CALIBRATION_current_measurement_2024-04
     #return frequencies_smoothed, currents
 
 
+def get_currents_from_relative_frequencies(frequencies, frequency_where_measured_current_is_zero):
+
+    calibration_frequencies, calibration_currents, p_a, p_b, p_c = fit_calibration_curve()
+    frequency_where_calibration_current_is_zero = quadratic(0, p_a, p_b, p_c)
+
+    relative_frequencies_for_fitting = frequencies - frequency_where_measured_current_is_zero + frequency_where_calibration_current_is_zero
+
+    y = relative_frequencies_for_fitting
+    fitted_currents = np.sqrt(-4*p_a*p_c + 4*p_a*y + p_b**2)/(2 * p_a) - p_b / (2 * p_a)
+
+    # old
+    #fitted_currents = np.interp(np.array(frequencies), calibration_frequencies, calibration_currents)
+
+    return relative_frequencies_for_fitting, fitted_currents
+
+
 def plot_change_in_odmr_freq_with_current(filename="data/CALIBRATION_current_measurement_2024-04-12_162441_.csv",
                                           sep="\t"):
     data = pd.read_csv(filename, sep=sep, header=0)
@@ -117,3 +136,4 @@ if __name__ == "__main__":
     #plot_change_in_odmr_freq_with_current()
     fit_calibration_curve()
     plt.show()
+    get_currents_from_relative_frequencies(None, None)

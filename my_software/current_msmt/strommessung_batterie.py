@@ -66,7 +66,7 @@ def current_measurement(num_current_measurements, run_time_per_odmr_scan=5,
     return times, odmr_frequencies_array, odmr_voltages_array
 
 
-def fit_avg_position_lock_in_hyperfine(odmr_ranges, num_current_measurements, odmr_frequencies_array, odmr_voltages_array, min_feature_amplitude=0.01,
+def fit_avg_position_lock_in_hyperfine(odmr_ranges, num_current_measurements, odmr_frequencies_array, odmr_voltages_array, min_feature_amplitude=0.02,
                                        min_feature_height=0.005,
                                        feature_fit_range=0.5e6, testing_flag=False):
 
@@ -98,14 +98,14 @@ def fit_avg_position_lock_in_hyperfine(odmr_ranges, num_current_measurements, od
 
 
 if __name__ == '__main__':
-    num_current_measurements = 100
-    run_time_per_odmr_scan = 5
+    num_current_measurements = 60
+    run_time_per_odmr_scan = 3
 
     # for some reason, the odmr ranges must be passed as floats and NOT as numpy floats. This probably is some problem
     # connected to rpyc in some way
 
     # this is the measurement range used in the calibration measurement
-    odmr_ranges = [[2.63e9, 2.66e9]]
+    odmr_ranges = [[2.638e9, 2.652e9]]
     odmr_frequency_points = 1000
 
     print("Measurement starting at " + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
@@ -113,7 +113,7 @@ if __name__ == '__main__':
                                                                       odmr_ranges=odmr_ranges, odmr_frequency_points=odmr_frequency_points)
 
     avg_odmr_positions, uncertainty_avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array = fit_avg_position_lock_in_hyperfine(
-        odmr_ranges, num_current_measurements, odmr_frequencies_array, odmr_voltages_array)
+        odmr_ranges, num_current_measurements, odmr_frequencies_array, odmr_voltages_array, testing_flag=False)
 
     print("Measurement finished at " + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 

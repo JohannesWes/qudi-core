@@ -7,6 +7,7 @@ import pandas as pd
 matplotlib.use("Qt5Agg")
 
 from strom_analyse_kalibration import fit_calibration_curve
+from strom_analyse_kalibration import get_currents_from_relative_frequencies
 from my_software.tools.fitting import quadratic
 #from my_software.tools.plotting.plotting
 
@@ -29,17 +30,17 @@ def load_frequency_data(filename=None, sep=","):
 # def current_from_frequency(frequencies, id_odmr_dip=0):
 
 
-def get_currents_from_frequencies(frequencies):
+# def get_currents_from_frequencies(frequencies):
+#
+#     calibration_frequencies, calibration_currents, p_a, p_b, p_c = fit_calibration_curve()
+#     y = frequencies
+#     fitted_currents = +np.sqrt(-4*p_a*p_c + 4*p_a*y + p_b**2)/(2 * p_a) - p_b / (2 * p_a)
+#     #fitted_currents = np.interp(np.array(frequencies), calibration_frequencies, calibration_currents)
+#
+#     return fitted_currents
 
-    calibration_frequencies, calibration_currents, p_a, p_b, p_c = fit_calibration_curve()
-    y = frequencies
-    fitted_currents = +np.sqrt(-4*p_a*p_c + 4*p_a*y + p_b**2)/(2 * p_a) - p_b / (2 * p_a)
-    #fitted_currents = np.interp(np.array(frequencies), calibration_frequencies, calibration_currents)
 
-    return fitted_currents
-
-
-def plot_frequencies_and_current_over_time(times, frequencies, currents, sep=","):
+def plot_frequencies_and_current_over_time(times, frequencies, currents):
 
     # PLOTS CURRENTS OVER TIME
     fig_current, ax_current = plt.subplots()
@@ -66,10 +67,10 @@ def plot_frequencies_and_current_over_time(times, frequencies, currents, sep=","
 
 
 if __name__ == "__main__":
-    times, frequencies = load_frequency_data("data/battery_current_measurement_2024-04-12_180114_.csv")
+    times, frequencies = load_frequency_data("data/battery_current_measurement_2024-04-15_120234_.csv")
 
-    interpolated_currents = get_currents_from_frequencies(frequencies)
+    fitting_frequencies, fitting_currents = get_currents_from_relative_frequencies(frequencies, 2844.975e6)
 
-    plot_frequencies_and_current_over_time(times, frequencies, interpolated_currents)
+    plot_frequencies_and_current_over_time(times, frequencies, fitting_currents)
 
     print("Not working correctly yet. Either, the current ports were swapped compared to calibration measurement.")

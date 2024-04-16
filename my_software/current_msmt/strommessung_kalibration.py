@@ -118,8 +118,8 @@ if __name__ == '__main__':
 
     # for some reason, the odmr ranges must be passed as floats and NOT as numpy floats. This probably is some problem
     # connected to rpyc in some way
-    odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9], [2.63e9, 2.66e9], [2.66e9, 2.68e9], [2.69e9, 2.715e9],
-                   [2.715e9, 2.74e9], [2.79e9, 2.815e9], [2.815e9, 2.835e9]]
+    # odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9], [2.63e9, 2.66e9], [2.66e9, 2.68e9], [2.69e9, 2.715e9],
+    #                [2.715e9, 2.74e9], [2.79e9, 2.815e9], [2.815e9, 2.835e9]]
     # odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9]]  # for testing
     #odmr_ranges = [[2.64e9, 2.65e9]]
     odmr_ranges = [[2.63e9, 2.66e9],
@@ -138,14 +138,14 @@ if __name__ == '__main__':
 
     columns = {f"odmr_peak_pos_{i}[Hz]": avg_odmr_positions[i] for i in range(len(avg_odmr_positions))}
     data = pd.DataFrame({"current[A]": current_array} | columns)
-    data.to_csv("current_measurement_" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False,
+    data.to_csv("CALIBRATION_current_measurement_" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False,
                 sep="\t")
 
     columns_uncertainty = {f"odmr_peak_pos_uncertainty_{i}[Hz]": uncertainty_avg_odmr_positions[i] for i in
                            range(len(uncertainty_avg_odmr_positions))}
     data_uncertainty = pd.DataFrame({"current[A]": current_array} | columns_uncertainty)
     data_uncertainty.to_csv(
-        "current_measurement_uncertainty" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False,
+        "CALIBRATION_current_measurement_uncertainty" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False,
         sep="\t")
 
     print('Measurement finished')
