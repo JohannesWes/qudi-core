@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: qudi-core
-Version: 1.4.2.dev0
+Version: 1.5.1.dev0
 Summary: A modular measurement application framework
 Home-page: https://github.com/Ulm-IQO/qudi-core
 License: LGPLv3
@@ -34,6 +34,22 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE.LESSER
 License-File: AUTHORS.md
+Requires-Dist: wheel>=0.37.0
+Requires-Dist: cycler>=0.10.0
+Requires-Dist: entrypoints>=0.3
+Requires-Dist: fysom>=2.1.6
+Requires-Dist: GitPython>=3.1.24
+Requires-Dist: jupyter>=1.0.0
+Requires-Dist: jupytext>=1.13.0
+Requires-Dist: lmfit>=1.0.3
+Requires-Dist: matplotlib>=3.4.3
+Requires-Dist: numpy>=1.21.3
+Requires-Dist: pyqtgraph>=0.13.0
+Requires-Dist: PySide2==5.15.2.1
+Requires-Dist: rpyc>=5.0.1
+Requires-Dist: ruamel.yaml>=0.17.16
+Requires-Dist: scipy>=1.7.1
+Requires-Dist: jsonschema>=4.2.1
 
 # qudi-core
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
