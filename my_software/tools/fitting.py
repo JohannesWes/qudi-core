@@ -214,7 +214,7 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
 
         except Exception as fitting_exception:
             print(str(fitting_exception))
-            print("Fitting failed. Peaks/Dips were detected at" + frequency_array[peak_index], frequency_array[dip_index])
+            print("Fitting failed. Peaks/Dips were detected at" + str(frequency_array[peak_index]), str(frequency_array[dip_index]))
             peak_position, dip_position = np.nan, np.nan
             peak_uncertainty, dip_uncertainty = np.nan, np.nan
 
