@@ -23,8 +23,8 @@ def load_frequency_data(filename=None, sep=","):
     # OPX FM carrier frequency. We perform FM around 200 MHz. This is mixed with the LO frequency. We use the lower
     # sideband (f_LO - f_FM) -> Need to correct frequency by 200 MHz
     df[columns[1:]] += 200e6
-
-    return np.array(relative_time_in_seconds), np.array(df[columns[1:]])[:, 0]
+    return np.array(relative_time_in_seconds), np.array(df[columns[1:]]).T
+    # return np.array(relative_time_in_seconds), np.array(df[columns[1:]])[:, 0], np.array(df[columns[1:]])[:, 1]
 
 # def current_from_frequency(frequencies, id_odmr_dip=0):
 
