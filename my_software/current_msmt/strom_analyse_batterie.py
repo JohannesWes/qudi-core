@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import draw
 import pandas as pd
 
 matplotlib.use("Qt5Agg")
