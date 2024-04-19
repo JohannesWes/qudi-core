@@ -11,13 +11,7 @@ from scipy.signal import find_peaks, welch, get_window, periodogram
 from scipy.optimize import curve_fit
 import matplotlib
 
-path = Path("").absolute()
-path_to_mod = str(path.parents[0] / "johannes_tools" / "data_analysis" / "fitting.py")
-spec = importlib.util.spec_from_file_location("fitting", path_to_mod)
-johannes_tools = importlib.util.module_from_spec(spec)
-sys.modules["fitting"] = johannes_tools
-spec.loader.exec_module(johannes_tools)
-from fitting import evaluate_hyperfine # noqa
+from my_software.tools.fitting import fit_hyperfine
 
 matplotlib.use("Qt5Agg")
 
