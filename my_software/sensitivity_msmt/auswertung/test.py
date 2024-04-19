@@ -15,36 +15,44 @@ from my_software.tools.fitting import fit_hyperfine, evaluate_hyperfine
 
 matplotlib.use("Qt5Agg")
 
-# --- FILENAMES AND PARAMETERS ---#
+# ----------------------------------------- FILENAMES AND PARAMETERS ------------------------------------------------- #
 
 slope_index = 1
 f_ENBW = 500  # [Hz]
 filename_result = 'result_85mW_ohne_sinc.pkl'
 filename_odmr = "20240326-1823-44_85mW_hyperfine_ohne_sinc_ODMR_signal.dat"
 
+voltage_LIA_output_scaling = 100
 
-# --- LOAD DATA---#
+# hyperfine peak finding parameters
+feature_distance = 0.5e6  # [Hz]
+min_feature_amp = 0.02
+zero_crossing_fit_range = 0.1e6  # [Hz]
+
+# ----------------------------------------- FILENAMES AND PARAMETERS --------------------------------------------------#
+
+
+# ----------------------------------------- PROGRAM --------------------------------------------------- #
 odmr_data = pd.read_csv(filename_odmr, comment='#', sep='\t',
                         header=None, names=['Frequency', 'Voltage'])
 with open(filename_result, 'rb') as f:
     result = pickle.load(f)
 
-
-
 # Find peaks and dips in the ODMR signal; specifically the maxima and minima of each peak
 peaks_indices, dips_indices, zero_crossings_indices, slopes, intercepts = evaluate_hyperfine(
-    np.array(odmr_data['Frequency']), np.array(odmr_data['Voltage']), 0.5e6, 0.02, 0.1e6)
-
-
+    np.array(odmr_data['Frequency']), np.array(odmr_data['Voltage']), feature_distance, min_feature_amp,
+    zero_crossing_fit_range)
 
 # --- Plot hyperfine spectrum and fitted lines --- #
 fig, ax = plt.subplots()
 ax.plot(odmr_data["Frequency"], odmr_data["Voltage"])
 ax.scatter(odmr_data['Frequency'].iloc[peaks_indices], odmr_data['Voltage'].iloc[peaks_indices], color='red')
 ax.scatter(odmr_data['Frequency'].iloc[dips_indices], odmr_data['Voltage'].iloc[dips_indices], color='blue')
+
 for i, slope in enumerate(slopes):
-    lower_bound, upper_bound = zero_crossings_indices[i]-20, zero_crossings_indices[i]+20
-    ax.plot(odmr_data['Frequency'][lower_bound:upper_bound], slopes[i]*odmr_data['Frequency'][lower_bound:upper_bound] + intercepts[i], color='green')
+    lower_bound, upper_bound = zero_crossings_indices[i] - 20, zero_crossings_indices[i] + 20
+    ax.plot(odmr_data['Frequency'][lower_bound:upper_bound],
+            slopes[i] * odmr_data['Frequency'][lower_bound:upper_bound] + intercepts[i], color='green')
 
 ax.set_ylabel("Voltage [V]")
 ax.set_xlabel("Frequency [Hz]")
@@ -56,7 +64,6 @@ fig.show()
 gyromagnetic_ratio_Hz_per_nT = 28.024  # Hz/nT
 volts_to_nT_multiplication_factor = 1 / slopes[
     slope_index] * 1 / gyromagnetic_ratio_Hz_per_nT  # 1/slope is Hz/V, 1/gyromagnetic ratio is nT/Hz
-
 
 # --- Process time traces from the lock-in amplifier --- #
 data_dict_x = result['/dev7279/demods/0/sample.x'][0]
@@ -82,9 +89,10 @@ samples_x_B_field_original = samples_x_B_field.copy()
 # ----------------------------------------------------------------------------------------------------------------------
 # Plot Time-Traces
 
-fig, axs = plt.subplots(2,1)
+fig, axs = plt.subplots(2, 1)
 
-axs[0].plot(times[0:int(sample_rate*int(duration))], samples_x_B_field_original[0:int(sample_rate*int(duration))], linewidth=0.2)
+axs[0].plot(times[0:int(sample_rate * int(duration))], samples_x_B_field_original[0:int(sample_rate * int(duration))],
+            linewidth=0.2)
 axs[0].grid()
 axs[0].set_title(f"{int(duration)} s Time Trace of Magnetic Field Noise")
 axs[0].set_xlabel("Time [s]")
@@ -98,16 +106,17 @@ axs[1].set_ylabel("Magnetic Field [nT]")
 fig.tight_layout()
 fig.show()
 
-
 # ----------------------------------------------------------------------------------------------------------------------
 fig, ax = plt.subplots()
 
 welch_x_hanning = welch(samples_x_B_field, fs=sample_rate, nperseg=sample_rate, noverlap=0, window='hann')
 welch_x_boxcar = welch(samples_x_B_field, fs=sample_rate, nperseg=sample_rate, noverlap=0, window="boxcar")
-sensitivity_pT_root_Hz = 1e3 * np.mean([np.std(samples_x_B_field[i * int(sample_rate):(i + 1) * int(sample_rate)]) for i in range(int(duration))]) / np.sqrt(2 * f_ENBW)
+sensitivity_pT_root_Hz = 1e3 * np.mean(
+    [np.std(samples_x_B_field[i * int(sample_rate):(i + 1) * int(sample_rate)]) for i in
+     range(int(duration))]) / np.sqrt(2 * f_ENBW)
 
 ax.plot(welch_x_hanning[0], np.sqrt(welch_x_hanning[1]), label="Hann window", alpha=0.7, linestyle="--")
-ax.plot(welch_x_boxcar[0], np.sqrt(welch_x_boxcar[1]),label="Boxcar window", alpha=0.7, linestyle="-.")
+ax.plot(welch_x_boxcar[0], np.sqrt(welch_x_boxcar[1]), label="Boxcar window", alpha=0.7, linestyle="-.")
 ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_title(f"Amplitude spectral density of the x-component of the magnetic field\n"
@@ -119,6 +128,5 @@ ax.legend()
 ax.set_ylim([1e-6, 1e0])
 fig.tight_layout()
 fig.show()
-
 
 plt.show()
