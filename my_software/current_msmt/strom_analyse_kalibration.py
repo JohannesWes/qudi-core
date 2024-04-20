@@ -77,7 +77,7 @@ def get_currents_from_relative_frequencies(frequencies, frequency_where_measured
     relative_frequencies_for_fitting = frequencies - frequency_where_measured_current_is_zero + frequency_where_calibration_current_is_zero
 
     y = relative_frequencies_for_fitting
-    fitted_currents = np.sqrt(-4*p_a*p_c + 4*p_a*y + p_b**2)/(2 * p_a) - p_b / (2 * p_a)
+    fitted_currents = -np.sqrt(-4*p_a*p_c + 4*p_a*y + p_b**2)/(2 * p_a) - p_b / (2 * p_a)
 
     # old
     #fitted_currents = np.interp(np.array(frequencies), calibration_frequencies, calibration_currents)
@@ -133,7 +133,7 @@ def plot_change_in_odmr_freq_with_current(filename="data/CALIBRATION_current_mea
 
 
 if __name__ == "__main__":
-    #plot_change_in_odmr_freq_with_current()
-    fit_calibration_curve()
-    plt.show()
-    get_currents_from_relative_frequencies(None, None)
+    plot_change_in_odmr_freq_with_current("data/CALIBRATION_current_measurement_2024-04-20_064035_.csv")
+    # fit_calibration_curve()
+    # plt.show()
+    # get_currents_from_relative_frequencies(None, None)
