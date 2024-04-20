@@ -1,12 +1,12 @@
+import os
 from os import listdir
 from os.path import isdir, join
 
 import matplotlib.pyplot as plt
 
-import scienceplots
 
 # register the included stylesheet in the matplotlib style library
-scienceplots_path = scienceplots.__path__[0]
+scienceplots_path = os.path.dirname(os.path.abspath(__file__))
 styles_path = join(scienceplots_path, 'styles')
 
 # Reads styles in /styles
