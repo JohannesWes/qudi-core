@@ -77,9 +77,11 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
     return odmr_frequencies_array, odmr_voltages_array
 
 
-def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array, min_feature_amplitude=0.008,
-        min_feature_height=0.005,
-        feature_fit_range=0.5e6, testing_flag=False):
+def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array, min_feature_amplitude = 0.05,
+        min_feature_height=0.025,
+        feature_fit_range=0.3e6, testing_flag=False):
+
+    current_points = len(current_array)
     # data array for storing the "middle position/average position" of the 3 hyperfine dips for each odmr_range
     avg_odmr_pos = np.zeros(shape=(len(odmr_ranges), current_points))
     uncertainty_avg_odmr_pos = np.zeros(shape=(len(odmr_ranges), current_points))
@@ -111,8 +113,8 @@ def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array,
     return current_array, avg_odmr_pos, uncertainty_avg_odmr_pos, odmr_frequencies_array, odmr_voltages_array
 
 
-if __name__ == '__main__':
-    current_min, current_max, current_points = 0.001, 0.2, 10
+def aufnahme_calibration(current_max=0.2):
+    current_min, current_max, current_points = 0.001, current_max, 1000
     current_array = np.linspace(current_min, current_max, current_points)
     run_time_per_odmr_scan = 10
 
@@ -122,8 +124,8 @@ if __name__ == '__main__':
     #                [2.715e9, 2.74e9], [2.79e9, 2.815e9], [2.815e9, 2.835e9]]
     # odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9]]  # for testing
     #odmr_ranges = [[2.64e9, 2.65e9]]
-    odmr_ranges = [[2.63e9, 2.66e9],
-                   [2.715e9, 2.74e9]]
+    odmr_ranges = [[2.64e9, 2.655e9],
+                   [2.718e9, 2.734e9]]
 
     print("Measurement starting at " + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
@@ -149,3 +151,8 @@ if __name__ == '__main__':
         sep="\t")
 
     print('Measurement finished')
+
+if __name__ == "__main__":
+
+    aufnahme_calibration()
+    print('Done')
