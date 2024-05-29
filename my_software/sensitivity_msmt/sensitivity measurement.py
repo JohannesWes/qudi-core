@@ -13,8 +13,6 @@ matplotlib.use("Qt5Agg")
 server_host = '192.168.113.190'
 # A session opened to LabOne Data Server
 session = Session(server_host)
-# Open a session
-hf2_session = Session(server_host)
 # connect to the device
 device = session.connect_device("DEV7279")
 
@@ -41,7 +39,7 @@ daq_module.device(device)
 # daq_module.setDouble('/dev7279/demods/0/timeconstant', 9.57619476e-05) # set filter bandwidth to 500 Hz
 
 daq_module.type(0)                  # continuous acquisition
-daq_module.grid.mode(2)             # how the acquired data is sample onto the matrix's horizontal axis - 2: linear interpolation
+daq_module.grid.mode(2)             # how the acquired data is sampled onto the matrix's horizontal axis - 2: linear interpolation
 daq_module.count(1)                 # number of trigger events to acquire in single-shot mode
 daq_module.duration(TOTAL_DURATION)
 daq_module.grid.cols(N_SAMPLES)     # Specify the number of columns/samples in the returned data grid (matrix)
