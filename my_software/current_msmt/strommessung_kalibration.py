@@ -10,7 +10,7 @@ import os
 matplotlib.use("Qt5Agg")
 
 from my_software.automation.qudi_remote_control import OdmrRemoteControl
-from my_software.automation.NGP_control import NGP_instance
+from my_software.automation.power_supply_NGP_control import NGP_instance
 from my_software.tools.fitting import fit_hyperfine
 
 
@@ -25,7 +25,7 @@ def folder():
 # -------------------------------------------------------------------------------------------------------------------- #
 
 def current_measurement(current_min, current_max, current_points, run_time_per_current_point=5,
-                        odmr_ranges=[[2.64e9, 2.65e9]], odmr_frequency_points=500):
+                        odmr_ranges=[[2.64e9, 2.65e9]], current_array=None, odmr_frequency_points=500):
     # folder_name for current measurement
     timestamp = datetime.now()
     folder_name = "KALIBRATION_Current_Measurement_" + timestamp.strftime('%Y%m%d-%H%M-%S') + "/"
@@ -39,7 +39,8 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
     odmr_remote = OdmrRemoteControl()
 
     # define currents to be applied
-    current_array = np.linspace(current_min, current_max, current_points)
+    if isinstance(current_array, type(None)):
+        current_array = np.linspace(current_min, current_max, current_points)
 
     # data arrays for storing the measured ODMR and frequency data
     odmr_voltages_array = np.zeros(shape=(len(odmr_ranges), current_points, odmr_frequency_points))
@@ -77,10 +78,9 @@ def current_measurement(current_min, current_max, current_points, run_time_per_c
     return odmr_frequencies_array, odmr_voltages_array
 
 
-def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array, min_feature_amplitude = 0.05,
+def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array, min_feature_amplitude=0.05,
         min_feature_height=0.025,
         feature_fit_range=0.3e6, testing_flag=False):
-
     current_points = len(current_array)
     # data array for storing the "middle position/average position" of the 3 hyperfine dips for each odmr_range
     avg_odmr_pos = np.zeros(shape=(len(odmr_ranges), current_points))
@@ -116,14 +116,26 @@ def fit(odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array,
 def aufnahme_calibration(current_max=0.2):
     current_min, current_max, current_points = 0.001, current_max, 1000
     current_array = np.linspace(current_min, current_max, current_points)
-    run_time_per_odmr_scan = 10
+    current_array = np.hstack(np.array([
+        np.array([0.001 for i in range(30)]),
+        np.array([0.05 for i in range(10)]),
+        np.array([0.001 for i in range(30)]),
+        np.array([0.05 for i in range(5)]),
+        np.array([0.001 for i in range(30)]),
+        np.array([0.05 for i in range(2)]),
+        np.array([0.001 for i in range(30)]),
+        np.array([0.05 for i in range(2)])
+    ], dtype=object). flatten())
+    current_points = len(current_array)
+
+    run_time_per_odmr_scan = 3
 
     # for some reason, the odmr ranges must be passed as floats and NOT as numpy floats. This probably is some problem
     # connected to rpyc in some way
     # odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9], [2.63e9, 2.66e9], [2.66e9, 2.68e9], [2.69e9, 2.715e9],
     #                [2.715e9, 2.74e9], [2.79e9, 2.815e9], [2.815e9, 2.835e9]]
     # odmr_ranges = [[2.51e9, 2.54e9], [2.54e9, 2.56e9]]  # for testing
-    #odmr_ranges = [[2.64e9, 2.65e9]]
+    # odmr_ranges = [[2.64e9, 2.65e9]]
     odmr_ranges = [[2.64e9, 2.655e9],
                    [2.718e9, 2.734e9]]
 
@@ -131,7 +143,8 @@ def aufnahme_calibration(current_max=0.2):
 
     odmr_frequencies_array, odmr_voltages_array = current_measurement(current_min, current_max, current_points,
                                                                       odmr_ranges=odmr_ranges,
-                                                                      run_time_per_current_point=run_time_per_odmr_scan)
+                                                                      run_time_per_current_point=run_time_per_odmr_scan,
+                                                                      current_array=current_array)
 
     current_array, avg_odmr_positions, uncertainty_avg_odmr_positions, odmr_frequencies_array, odmr_voltages_array = fit(
         odmr_ranges, current_array, odmr_frequencies_array, odmr_voltages_array)
@@ -140,19 +153,21 @@ def aufnahme_calibration(current_max=0.2):
 
     columns = {f"odmr_peak_pos_{i}[Hz]": avg_odmr_positions[i] for i in range(len(avg_odmr_positions))}
     data = pd.DataFrame({"current[A]": current_array} | columns)
-    data.to_csv("CALIBRATION_current_measurement_" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False,
+    data.to_csv("NICESTUFF_current_measurement_" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv",
+                index=False,
                 sep="\t")
 
     columns_uncertainty = {f"odmr_peak_pos_uncertainty_{i}[Hz]": uncertainty_avg_odmr_positions[i] for i in
                            range(len(uncertainty_avg_odmr_positions))}
     data_uncertainty = pd.DataFrame({"current[A]": current_array} | columns_uncertainty)
     data_uncertainty.to_csv(
-        "CALIBRATION_current_measurement_uncertainty" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv", index=False,
+        "CALIBRATION_current_measurement_uncertainty" + str(datetime.now().strftime('%Y-%m-%d_%H%M%S')) + "_.csv",
+        index=False,
         sep="\t")
 
     print('Measurement finished')
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     aufnahme_calibration()
     print('Done')

@@ -9,7 +9,6 @@ import pandas as pd
 import scipy.fft as fft
 from scipy.signal import find_peaks, welch, get_window, periodogram
 from scipy.optimize import curve_fit
-from scipy.integrate import quad
 import matplotlib
 
 from my_software.tools.fitting import fit_hyperfine, evaluate_hyperfine
@@ -40,7 +39,7 @@ with open(filename_result, 'rb') as f:
     result = pickle.load(f)
 
 # Find peaks and dips in the ODMR signal; specifically the maxima and minima of each peak
-peaks_indices, dips_indices, zero_crossings_indices, slopes, intercepts, linewidth = evaluate_hyperfine(
+peaks_indices, dips_indices, zero_crossings_indices, slopes, intercepts = evaluate_hyperfine(
     np.array(odmr_data['Frequency']), np.array(odmr_data['Voltage']), feature_distance, min_feature_amp,
     zero_crossing_fit_range)
 
@@ -89,21 +88,21 @@ samples_x_B_field_original = samples_x_B_field.copy()
 # samples_x_B_field = samples_x_B_field - np.mean(samples_x_B_field)
 # samples_y_B_field = data_dict_y.value[0] * volts_to_nT_multiplication_factor
 # samples_y_B_field = samples_y_B_field - np.mean(samples_y_B_field)
-samples_x = data_dict_x.value[0] - np.mean(data_dict_x.value[0])
+
 
 # ----------------------------------------------------------------------------------------------------------------------
-# PLOT MAGNETIC FIELD NOISE TIME TRACES
+# Plot Time-Traces
 
 fig, axs = plt.subplots(2, 1)
 
-axs[0].plot(times[0:int(sample_rate * int(duration))], samples_x_B_field[0:int(sample_rate * int(duration))],
+axs[0].plot(times[0:int(sample_rate * int(duration))], samples_x_B_field_original[0:int(sample_rate * int(duration))],
             linewidth=0.2, alpha=0.8, color="dimgray")
 axs[0].grid()
 axs[0].set_title(f"{int(duration)} s Time Trace of Magnetic Field Noise")
 axs[0].set_xlabel("Time [s]")
 axs[0].set_ylabel("Magnetic Field [nT]")
 
-axs[1].plot(times[0:int(sample_rate)], samples_x_B_field[0:int(sample_rate)], linewidth=0.75, color="dimgray" )#, marker=".", markersize=0.5)
+axs[1].plot(times[0:int(sample_rate)], samples_x_B_field[0:int(sample_rate)], linewidth=0.75, color="dimgray")
 axs[1].grid()
 axs[1].set_title("1 s Time Trace of Magnetic Field Noise")
 axs[1].set_xlabel("Time [s]")
@@ -112,31 +111,10 @@ fig.tight_layout()
 fig.show()
 
 # ----------------------------------------------------------------------------------------------------------------------
-# PLOT VOLTAGE NOISE TIME TRACES
-
-fig, axs = plt.subplots(2, 1)
-
-axs[0].plot(times[0:int(sample_rate * int(duration))], samples_x[0:int(sample_rate * int(duration))],
-            linewidth=0.2, alpha=0.8, color="navajowhite")
-axs[0].grid()
-axs[0].set_title(f"{int(duration)} s Time Trace of Voltage Noise")
-axs[0].set_xlabel("Time [s]")
-axs[0].set_ylabel("Voltage [V]")
-
-axs[1].plot(times[0:int(sample_rate)], samples_x[0:int(sample_rate)], linewidth=0.75, color="navajowhite" )#, marker=".", markersize=0.5)
-axs[1].grid()
-axs[1].set_title("1 s Time Trace of Voltage Noise")
-axs[1].set_xlabel("Time [s]")
-axs[1].set_ylabel("Voltage [V]")
-fig.tight_layout()
-fig.show()
-
-# ----------------------------------------------------------------------------------------------------------------------
 fig, ax = plt.subplots()
 
 welch_x_hanning = welch(samples_x_B_field, fs=sample_rate, nperseg=sample_rate, noverlap=0, window='hann')
 welch_x_boxcar = welch(samples_x_B_field, fs=sample_rate, nperseg=sample_rate, noverlap=0, window="boxcar")
-
 
 sensitivity_nT_root_Hz = np.mean(
     [np.std(samples_x_B_field[i * int(sample_rate):(i + 1) * int(sample_rate)]) for i in

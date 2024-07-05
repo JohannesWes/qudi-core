@@ -4,11 +4,14 @@ from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
 import pandas as pd
 
+
 def parabola(x, x0, a, c):
     return a * (x - x0) ** 2 + c
 
+
 def quadratic(x, a, b, c):
     return a * x ** 2 + b * x + c
+
 
 def smooth(y, box_pts):
     box = np.ones(box_pts) / box_pts
@@ -75,7 +78,11 @@ def evaluate_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.
         slopes.append(slope)
         intercepts.append(intercept)
 
-    return peaks_indices, dips_indices, zero_crossings_indices, slopes, intercepts
+    linewidths = np.sqrt(3) * (frequency_array[peaks_indices] - frequency_array[dips_indices])
+
+    print(frequency_array[peaks_indices], frequency_array[dips_indices])
+
+    return peaks_indices, dips_indices, zero_crossings_indices, slopes, intercepts, linewidths
 
 
 def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, min_feature_amplitude=0.02,
@@ -104,7 +111,7 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
 
 
     """
-    plot_fitting_initial=plot_fitting
+    plot_fitting_initial = plot_fitting
 
     # Check if input arrays are np.ndarray or pandas series
     if not isinstance(frequency_array, np.ndarray) and isinstance(frequency_array, pd.core.series.Series):
@@ -134,9 +141,11 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
         fig, ax = plt.subplots()
         ax.plot(frequency_array, smoothed_voltage_array, label="smoothed", zorder=2, alpha=0.75)
         ax.plot(frequency_array, voltage_array, label="original", zorder=1, alpha=0.75)
-        ax.scatter(frequency_array[peaks_indices], smoothed_voltage_array[peaks_indices], color='red', label="peaks smoothed",
+        ax.scatter(frequency_array[peaks_indices], smoothed_voltage_array[peaks_indices], color='red',
+                   label="peaks smoothed",
                    zorder=3)
-        ax.scatter(frequency_array[dips_indices], smoothed_voltage_array[dips_indices], color='green', label="dips smoothed",
+        ax.scatter(frequency_array[dips_indices], smoothed_voltage_array[dips_indices], color='green',
+                   label="dips smoothed",
                    zorder=3)
         plt.legend()
         fig.suptitle('smoothed curve is used for peak finding\n Original curve is used for fitting')
@@ -208,13 +217,16 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
             dip_uncertainty = np.sqrt(np.diag(dips_cov))[0]
 
             if abs(peak_position - frequency_array[peak_index]) > 0.5e6:
-                print("Warning: Peak position is more than 0.5 MHz away from most prominent data point at estimated peak.")
+                print(
+                    "Warning: Peak position is more than 0.5 MHz away from most prominent data point at estimated peak.")
             if abs(dip_position - frequency_array[dip_index]) > 0.5e6:
-                print("Warning: Dip position is more than 0.5 MHz away from most prominent data point at estimated dip.")
+                print(
+                    "Warning: Dip position is more than 0.5 MHz away from most prominent data point at estimated dip.")
 
         except Exception as fitting_exception:
             print(str(fitting_exception))
-            print("Fitting failed. Peaks/Dips were detected at" + str(frequency_array[peak_index]), str(frequency_array[dip_index]))
+            print("Fitting failed. Peaks/Dips were detected at" + str(frequency_array[peak_index]),
+                  str(frequency_array[dip_index]))
             peak_position, dip_position = np.nan, np.nan
             peak_uncertainty, dip_uncertainty = np.nan, np.nan
 
@@ -229,14 +241,18 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
         try:
             if plot_fitting:
                 fig, ax = plt.subplots()
-                ax.scatter(frequencies_around_peak/1e6, voltages_around_peak, color='blue', alpha=0.3)
-                ax.scatter(frequencies_around_dip/1e6, voltages_around_dip, color='blue', alpha=0.3, label='data')
-                ax.plot(frequencies_around_dip/1e6, smooth(voltages_around_dip, 20), zorder=3, color="yellow", linewidth=3)
-                ax.plot(frequencies_around_peak/1e6, smooth(voltages_around_peak, 20), zorder=3, color="yellow", label="smoothed data", linewidth=3)
-                ax.plot(frequencies_around_peak/1e6, parabola(frequencies_around_peak, *peak_params), color='red', zorder=2, linewidth=2)
-                ax.plot(frequencies_around_dip/1e6, parabola(frequencies_around_dip, *dip_params), color='red', label="parabolic fit", zorder=2, linewidth=2)
-                ax.scatter(peak_position/1e6, parabola(peak_position, *peak_params), color='green', zorder=3)
-                ax.scatter(dip_position/1e6, parabola(dip_position, *dip_params), color='green', zorder=3)
+                ax.scatter(frequencies_around_peak / 1e6, voltages_around_peak, color='blue', alpha=0.3)
+                ax.scatter(frequencies_around_dip / 1e6, voltages_around_dip, color='blue', alpha=0.3, label='data')
+                ax.plot(frequencies_around_dip / 1e6, smooth(voltages_around_dip, 20), zorder=3, color="yellow",
+                        linewidth=3)
+                ax.plot(frequencies_around_peak / 1e6, smooth(voltages_around_peak, 20), zorder=3, color="yellow",
+                        label="smoothed data", linewidth=3)
+                ax.plot(frequencies_around_peak / 1e6, parabola(frequencies_around_peak, *peak_params), color='red',
+                        zorder=2, linewidth=2)
+                ax.plot(frequencies_around_dip / 1e6, parabola(frequencies_around_dip, *dip_params), color='red',
+                        label="parabolic fit", zorder=2, linewidth=2)
+                ax.scatter(peak_position / 1e6, parabola(peak_position, *peak_params), color='green', zorder=3)
+                ax.scatter(dip_position / 1e6, parabola(dip_position, *dip_params), color='green', zorder=3)
                 ax.set_title("Fitting of Hyperfine Peaks and Dips")
                 ax.set_xlabel("Frequency [MHz]")
                 ax.set_ylabel("Voltage [V]")
@@ -248,14 +264,10 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
             print("EXCEPTIONfailed for peak at index", peak_index, "and dip at index", dip_index)
             print(str(PlottingException))
 
-
-
         fit_peak_positions.append(peak_position)
         fit_dip_positions.append(dip_position)
         fit_peak_uncertainties.append(peak_uncertainty)
         fit_dip_uncertainties.append(dip_uncertainty)
-
-
 
     return [
         [(fit_peak_positions[i], fit_peak_uncertainties[i]) for i in range(len(fit_dip_positions))],

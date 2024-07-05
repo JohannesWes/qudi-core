@@ -1,3 +1,6 @@
+# Implementing remote control of Qudi modules using RPyC
+# Qudi and the gui windows for the modules (e.g. ODMR, TimeSeries) must be opened already.
+
 import jupyter_client as jc
 import ast
 import numpy as np
@@ -6,7 +9,6 @@ import json
 import time
 import rpyc
 import functools
-
 
 def logger():
     return logging.getLogger(__name__)
@@ -137,7 +139,7 @@ class OdmrRemoteControl(QudiRemoteControl):
         while self._odmr_module.module_state() == 'locked':
             time.sleep(min_run_time / 10)
         if save_data:
-            self.save_odmr_scan(filename, use_timestamp=False)
+            self.save_odmr_scan(filename, use_timestamp=True, save_thumbnails=True)
 
         # return ODMR data (element 0 is frequency array, element 1 is signal array)
         return np.array(self._odmr_module._join_signal_data().T[0]), np.array(self._odmr_module._join_signal_data().T[1])

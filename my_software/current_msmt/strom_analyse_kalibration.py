@@ -133,7 +133,7 @@ def plot_change_in_odmr_freq_with_current(filename="data/CALIBRATION_current_mea
 
 
 if __name__ == "__main__":
-    plot_change_in_odmr_freq_with_current("data/CALIBRATION_current_measurement_2024-04-20_064035_.csv")
+    plot_change_in_odmr_freq_with_current("data/NICESTUFF_current_measurement_2024-04-20_232356_.csv")
     # fit_calibration_curve()
     # plt.show()
     # get_currents_from_relative_frequencies(None, None)
