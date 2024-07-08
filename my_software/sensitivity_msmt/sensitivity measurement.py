@@ -1,9 +1,10 @@
 import time
 import pickle
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 from zhinst.toolkit import Session
-from my_software.automation.qudi_remote_control import OdmrRemoteControl
+#from my_software.automation.qudi_remote_control import OdmrRemoteControl
 
 matplotlib.use("Qt5Agg")
 
@@ -11,7 +12,7 @@ matplotlib.use("Qt5Agg")
 SERVER_HOST = '192.168.113.190'
 DEVICE_ID = "DEV7279"
 FILENAME_SAVE = 'auswertung/cobolt_04-07-24-23Uhr18_0.02OPX_250kHzfdev_7kHzfmod/cobolt_04-07-24-23Uhr18_0.02OPX_250kHzfdev_7kHzfmod_LIA250Hz.pkl'
-N_TIME_TRACES = 5
+N_TIME_TRACES = 1
 TOTAL_DURATION = 1 * N_TIME_TRACES  # [s]
 SAMPLING_RATE = 20e3  # [Hz]
 N_SAMPLES = int(SAMPLING_RATE * N_TIME_TRACES)  # Number of points
@@ -52,7 +53,14 @@ def data_acquisition():
     x_value = result[demod_sample_nodes[0]][0].value[0]
     y_value = result[demod_sample_nodes[1]][0].value[0]
 
-    return times, x_value, y_value
+    filter_order = device.demods[0].order()
+    filter_time_constant = device.demods[0].timeconstant()
+    filter_3db_freq = np.sqrt(2**(1/filter_order) - 1)/(2*np.pi*filter_time_constant)
+    filter_sinc = device.demods[0].sinc()
+    demod_scaling = device.auxouts[0].scale()
+
+    return {"result_object": result, "times": times, "x_value": x_value, "y_value": y_value, "filter_order": filter_order,
+            "filter_3db_freq": filter_3db_freq, "filter_sinc": filter_sinc, "demod_scaling": demod_scaling}
 
 
 def save_results(filename, result):
@@ -60,7 +68,7 @@ def save_results(filename, result):
     with open(filename, 'wb') as f:
         pickle.dump(result, f)
 
-def plot_results(times, x, y):
+def plot_demod_time_traces(times, x, y):
     """Plot the results using matplotlib."""
     _, axis = plt.subplots(1, 1)
 
@@ -78,11 +86,18 @@ def plot_results(times, x, y):
     axis.set_ylabel("Signal(V)")
     plt.show()
 
-def sensitivity_measurement():
+def sensitivity_measurement(plot_demod=True, save_plots=False, save_data=False):
     """Perform a sensitivity measurement."""
 
-    times, x_value, y_value = data_acquisition()
-    plot_results(times, x_value, y_value)
+    acq_data = data_acquisition()
+    times, x_value, y_value = acq_data["times"], acq_data["x_value"], acq_data["y_value"]
+
+    if plot_demod:
+        plot_demod_time_traces(times, x_value, y_value)
+
+    # if save_data:
+
+
     # print("result",time)
     # print("demod_sample_nodes",demod_sample_nodes)
 
