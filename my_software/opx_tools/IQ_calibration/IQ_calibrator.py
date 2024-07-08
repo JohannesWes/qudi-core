@@ -248,26 +248,26 @@ if __name__ == "__main__":
     g_array, phi_array = np.zeros(len(voltages)), np.zeros(len(voltages))
     I_array, Q_array = np.zeros(len(voltages)), np.zeros(len(voltages))
 
-    # for v_index, voltage in enumerate(voltages):
-    #
-    #     exception_counter = 1
-    #     while True:
-    #         try:
-    #             time.sleep(2)
-    #             calibrator = IQMixerCalibrator(voltage)
-    #             calibrator.connect_instruments()
-    #             best_leakage, best_IQ = calibrator.calibrate()
-    #             calibrator.disconnect_instruments()
-    #             g_array[v_index], phi_array[v_index] = best_leakage
-    #             I_array[v_index], Q_array[v_index] = best_IQ
-    #             break
-    #         except Exception as e:
-    #             print(f"Calibration failed for voltage {voltage} for the {exception_counter} time. Repeating now. {e}")
-    #             exception_counter += 1
-    #
-    # print(g_array, phi_array)
-    # np.save("g_array.npy", g_array)
-    # np.save("phi_array.npy", phi_array)
-    # np.save("I_array.npy", I_array)
-    # np.save("Q_array.npy", Q_array)
+    for v_index, voltage in enumerate(voltages):
+
+        exception_counter = 1
+        while True:
+            try:
+                time.sleep(2)
+                calibrator = IQMixerCalibrator(voltage)
+                calibrator.connect_instruments()
+                best_leakage, best_IQ = calibrator.calibrate()
+                calibrator.disconnect_instruments()
+                g_array[v_index], phi_array[v_index] = best_leakage
+                I_array[v_index], Q_array[v_index] = best_IQ
+                break
+            except Exception as e:
+                print(f"Calibration failed for voltage {voltage} for the {exception_counter} time. Repeating now. {e}")
+                exception_counter += 1
+
+    print(g_array, phi_array)
+    np.save("g_array.npy", g_array)
+    np.save("phi_array.npy", phi_array)
+    np.save("I_array.npy", I_array)
+    np.save("Q_array.npy", Q_array)
     np.save("voltages.npy", voltages)
