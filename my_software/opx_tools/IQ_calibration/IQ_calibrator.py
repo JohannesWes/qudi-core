@@ -3,6 +3,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as opti
+import pandas as pd
 
 from configuration_IQ_calibration import *  # Import all settings from configuration.py
 from auto_mixer_tools_visa import RhodeSchwarzRTO6
@@ -43,9 +44,7 @@ class IQMixerCalibrator():
                     ports = qm_config['controllers']['con1']['analog_outputs']
                 except:
                     continue
-                if parameters.port_I in ports:
-                    self.qmm.get_qm(machine).close()
-                if parameters.port_Q in ports:
+                if self.parameters.port_I in ports or self.parameters.port_Q in ports:
                     self.qmm.get_qm(machine).close()
 
             self.qm = self.qmm.open_qm(self.opx_config, close_other_machines=False)
@@ -135,7 +134,7 @@ class IQMixerCalibrator():
         return res_leakage.x, res_leakage.fun
 
     def optimize_image(self, initial_simplex=None, x0=[0, 0]):
-        """Optimizes I and Q DC offsets to maximize image rejection."""
+        """Optimizes g and phi to maximize image rejection."""
         self.oscilloscope.set_center_freq(self.parameters.qubit_LO - self.parameters.qubit_IF)
         if self.parameters.method == 2:  # Marker
             self.oscilloscope.set_marker_freq(1, self.parameters.qubit_LO - self.parameters.qubit_IF)
@@ -155,7 +154,7 @@ class IQMixerCalibrator():
             },
         )
         print(
-            f"Image Rejection Results: Found a minimum of {int(res_image.fun)} dBm at (I0, Q0) = ({res_image.x[0]:.5f}, {res_image.x[1]:.5f}) in "
+            f"Image Rejection Results: Found a minimum of {int(res_image.fun)} dBm at (g, phi) = ({res_image.x[0]:.5f}, {res_image.x[1]:.5f}) in "
             f"{int(time.time() - start_time)} seconds"
         )
 
@@ -199,14 +198,14 @@ class IQMixerCalibrator():
             freq_vec, amp_before = self._perform_spectrum_sweep()
 
         simplex_leakage = self._initial_simplex([0, 0])
-        simplex_IQ = self._initial_simplex([0, 0])
+        simplex_image = self._initial_simplex([0, 0])
         result_leakage = [0, 0]
-        result_IQ = [0, 0]
+        result_image = [0, 0]
 
-        simplex_IQ_array = np.zeros([self.parameters.optimization_repititions, 2])
-        simplex_leakage_array = np.zeros([self.parameters.optimization_repititions, 2])
+        result_image_array = np.zeros([self.parameters.optimization_repititions, 2])
+        result_leakage_array = np.zeros([self.parameters.optimization_repititions, 2])
 
-        fun_IQ_array = np.zeros(self.parameters.optimization_repititions)
+        fun_image_array = np.zeros(self.parameters.optimization_repititions)
         fun_leakage_array = np.zeros(self.parameters.optimization_repititions)
 
         for i in range(self.parameters.optimization_repititions):
@@ -217,33 +216,39 @@ class IQMixerCalibrator():
             result_leakage, fun_leakage = self.optimize_LO_leakage(
                 initial_simplex=simplex_leakage, x0=result_leakage
             )
+
+            # redefine simplex to have better starting value for the next iteration
             simplex_leakage = self._initial_simplex(result_leakage)
-            simplex_leakage_array[i, :] = result_leakage
+
+            result_leakage_array[i, :] = result_leakage
             fun_leakage_array[i] = fun_leakage
 
-            result_IQ, fun_IQ = self.optimize_image(
-                initial_simplex=simplex_IQ, x0=result_IQ
+            result_image, fun_image = self.optimize_image(
+                initial_simplex=simplex_image, x0=result_image
             )
-            simplex_IQ = self._initial_simplex(result_IQ)
-            simplex_IQ_array[i, :] = result_IQ
-            fun_IQ_array[i] = fun_IQ
+
+            # redefine simplex to have better starting value for the next iteration
+            simplex_image = self._initial_simplex(result_image)
+
+            result_image_array[i, :] = result_image
+            fun_image_array[i] = fun_image
 
         if self.parameters.bDoSweeps:
             _, amp_after = self._perform_spectrum_sweep()
             self._plot_spectrum(freq_vec, amp_before, amp_after)
 
         # maximize suppression of image and LO leakage
-        reward = np.abs(fun_IQ_array + fun_leakage_array)
+        reward = np.abs(fun_image_array + fun_leakage_array)
         best_index = np.argmax(reward)
-        best_IQ, best_leakage = simplex_IQ_array[best_index], simplex_leakage_array[best_index]
+        best_image, best_leakage = result_image_array[best_index], result_leakage_array[best_index]
 
-        print(best_leakage, best_IQ)
+        print(best_leakage, best_image)
 
-        return best_leakage, best_IQ
+        return best_leakage, best_image
 
 if __name__ == "__main__":
 
-    voltages = np.linspace(0.001, 0.2, 50)
+    voltages = np.linspace(0.3, 0.5, 2)
 
     g_array, phi_array = np.zeros(len(voltages)), np.zeros(len(voltages))
     I_array, Q_array = np.zeros(len(voltages)), np.zeros(len(voltages))
@@ -253,21 +258,40 @@ if __name__ == "__main__":
         exception_counter = 1
         while True:
             try:
-                time.sleep(2)
+                time.sleep(1)
                 calibrator = IQMixerCalibrator(voltage)
                 calibrator.connect_instruments()
-                best_leakage, best_IQ = calibrator.calibrate()
+                best_leakage, best_image = calibrator.calibrate()
                 calibrator.disconnect_instruments()
-                g_array[v_index], phi_array[v_index] = best_leakage
-                I_array[v_index], Q_array[v_index] = best_IQ
+                I_array[v_index], Q_array[v_index] = best_leakage
+                g_array[v_index], phi_array[v_index] = best_image
+
                 break
             except Exception as e:
                 print(f"Calibration failed for voltage {voltage} for the {exception_counter} time. Repeating now. {e}")
                 exception_counter += 1
 
+
+
+    # Save calibration data to numpy arrays
     print(g_array, phi_array)
-    np.save("g_array.npy", g_array)
-    np.save("phi_array.npy", phi_array)
-    np.save("I_array.npy", I_array)
-    np.save("Q_array.npy", Q_array)
-    np.save("voltages.npy", voltages)
+    # np.save("g_array.npy", g_array)
+    # np.save("phi_array.npy", phi_array)
+    # np.save("I_array.npy", I_array)
+    # np.save("Q_array.npy", Q_array)
+    # np.save("voltages.npy", voltages)
+
+
+    # Save calibration data to a CSV file
+    calibration_df = pd.DataFrame(
+        {
+            "voltage [V]": voltages,
+            "g": g_array,
+            "phi": phi_array,
+            "I": I_array,
+            "Q": Q_array,
+        }
+    )
+
+    # save calibration data to a csv file with filename specifying the date and time
+    calibration_df.to_csv(f"calibration_{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv", sep="\t")
