@@ -248,7 +248,7 @@ class IQMixerCalibrator():
 
 if __name__ == "__main__":
 
-    voltages = np.linspace(0.3, 0.5, 2)
+    voltages = np.linspace(0.01, 0.5, 50)
 
     g_array, phi_array = np.zeros(len(voltages)), np.zeros(len(voltages))
     I_array, Q_array = np.zeros(len(voltages)), np.zeros(len(voltages))
@@ -265,6 +265,7 @@ if __name__ == "__main__":
                 calibrator.disconnect_instruments()
                 I_array[v_index], Q_array[v_index] = best_leakage
                 g_array[v_index], phi_array[v_index] = best_image
+                print(f"CALIBRATION SUCCESSFUL FOR VOLTAGE {voltage}, g: {best_image[0]}, phi: {best_image[1]}, I: {best_leakage[0]}, Q: {best_leakage[1]}")
 
                 break
             except Exception as e:
