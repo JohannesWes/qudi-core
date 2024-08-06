@@ -133,8 +133,8 @@ class OdmrRemoteControl(QudiRemoteControl):
             raise
 
     @log
-    def take_odmr_scan(self, filename, min_run_time, frequency_start, frequency_stop, frequency_points, save_data=True):
-        self.set_odmr_parameters(run_time=min_run_time, frequency_start=frequency_start, frequency_stop=frequency_stop, frequency_points=frequency_points)
+    def take_odmr_scan(self, filename, min_run_time, frequency_start, frequency_stop, frequency_points, save_data=True, data_rate=1000):
+        self.set_odmr_parameters(run_time=min_run_time, frequency_start=frequency_start, frequency_stop=frequency_stop, frequency_points=frequency_points, data_rate=data_rate)
         self.start_odmr_scan()
         while self._odmr_module.module_state() == 'locked':
             time.sleep(min_run_time / 10)
@@ -143,6 +143,22 @@ class OdmrRemoteControl(QudiRemoteControl):
 
         # return ODMR data (element 0 is frequency array, element 1 is signal array)
         return np.array(self._odmr_module._join_signal_data().T[0]), np.array(self._odmr_module._join_signal_data().T[1])
+
+    @log
+    def set_cw_parameters(self, frequency=2.7e9, power=13):
+        try:
+            self._odmr_module.set_cw_parameters(frequency, power)
+        except:
+            logging.error(f"Couldn't set CW parameters.")
+            raise
+
+    @log
+    def toggle_cw_output(self, enable):
+        try:
+            self._odmr_module.toggle_cw_output(enable)
+        except Exception as e:
+            logging.error(f"Couldn't toggle CW output: {str(e)}")
+            raise
 
     def close_connection(self):
         self.connection.close()
