@@ -17,7 +17,7 @@ matplotlib.use("Qt5Agg")
 
 class FM_setup:
 
-    def __init__(self, f_mod=7e3, f_dev=250e3, voltage_opx_200MHz_base=0.01, voltage_IF_hyperfine=0.5, g_cor=0.11474, phi_cor=-0.09787, I_offset=-0.01040,
+    def __init__(self, f_mod=7e3, f_dev=250e3, OPX_LO_voltage=0.01, OPX_IF_voltage=0.5, g_cor=0.11474, phi_cor=-0.09787, I_offset=-0.01040,
                  Q_offset=-0.01000):
 
         self.config_parameters = parameters()
@@ -25,8 +25,8 @@ class FM_setup:
         # not sure if this is a good way of handling data, have to learn a bit more object-oriented python
         self.config_parameters.f_mod = f_mod
         self.config_parameters.f_dev = f_dev
-        self.config_parameters.voltage_opx_200MHz_base = voltage_opx_200MHz_base
-        self.config_parameters.voltage_IF_hyperfine = voltage_IF_hyperfine
+        self.config_parameters.OPX_LO_voltage = OPX_LO_voltage
+        self.config_parameters.OPX_IF_voltage = OPX_IF_voltage
         self.config_parameters.g_cor = g_cor
         self.config_parameters.phi_cor = phi_cor
         self.config_parameters.I_offset = I_offset
@@ -114,13 +114,13 @@ def get_calibration_data(voltages, cal_filename="calibration_data.csv"):
 
 if __name__ == '__main__':
 
-    voltage_opx_200MHz_base = 0.5
-    voltage_IF_hyperfine = 0.1
+    OPX_LO_voltage = 0.5
+    OPX_IF_voltage = 0.1
 
     f_dev = 620e3
     f_mod = 6.3e3
 
-    g, phi, I, Q = get_calibration_data(voltage_opx_200MHz_base, cal_filename="..\IQ_calibration\calibration_2024-08-02-10-33-57.csv")
+    g, phi, I, Q = get_calibration_data(OPX_LO_voltage, cal_filename="..\IQ_calibration\calibration_2024-08-02-10-33-57.csv")
     print("g: ", g, "phi: ", phi, "I: ", I, "Q: ", Q)
 
     # # wenn ich die werte hier verändere, sehe ich, dass sich im Oszi was ändert (die stärke von LO durchbruch z.B. wird größer/kleiner). Die werte hier zu setzen hat also übers FM_setup schon auswirkungen
@@ -130,5 +130,5 @@ if __name__ == '__main__':
     # I = -0.005133440923152878
     # Q = -0.007058443272055322
 
-    fm = FM_setup(voltage_opx_200MHz_base=voltage_opx_200MHz_base, voltage_IF_hyperfine=voltage_IF_hyperfine, f_dev=f_dev, f_mod=f_mod, g_cor=g, phi_cor=phi, I_offset=I, Q_offset=Q, )
+    fm = FM_setup(OPX_LO_voltage=OPX_LO_voltage, OPX_IF_voltage=OPX_IF_voltage, f_dev=f_dev, f_mod=f_mod, g_cor=g, phi_cor=phi, I_offset=I, Q_offset=Q, )
     fm.execute_FM()

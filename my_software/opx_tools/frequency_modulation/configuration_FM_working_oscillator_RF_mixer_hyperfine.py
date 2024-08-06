@@ -30,7 +30,7 @@ class parameters:
         self.f_dev = 700e3  # deviation of the modulation
         self.f_base = 200.00e6  # frequency around that we modulate: base frequency chosen as middle of bandwidth (400 MHz) of OPX
         self.ensemble_lo = 2.5e9
-        self.voltage_opx_200MHz_base = 0.5  # peak (not peak-to-peak) output voltage of the opx
+        self.OPX_LO_voltage = 0.5  # peak (not peak-to-peak) output voltage of the opx
 
         # corrections for I & Q voltages; values from IQ-calibration script
         self.I_offset, self.Q_offset = -0.00431, -0.00452
@@ -44,7 +44,7 @@ class parameters:
 
         self.f_IF_hyperfine = 2.158e6
         self.port_IF_hyperfine = 6
-        self.voltage_IF_hyperfine = 0.05
+        self.OPX_IF_voltage = 0.05
 
         self.opx_ip_address = '10.203.129.12'
 
@@ -165,8 +165,8 @@ class parameters:
             },
 
             "waveforms": {
-                "const_wf": {"type": "constant", "sample": self.voltage_opx_200MHz_base},
-                "const_wf_IF_hyperfine": {"type": "constant", "sample": self.voltage_IF_hyperfine},
+                "const_wf": {"type": "constant", "sample": self.OPX_LO_voltage},
+                "const_wf_IF_hyperfine": {"type": "constant", "sample": self.OPX_IF_voltage},
                 "zero_wf": {"type": "constant", "sample": 0.0},
             },
 
