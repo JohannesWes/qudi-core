@@ -4,7 +4,8 @@ from qm.qua import *
 from qm import SimulationConfig
 import numpy as np
 import matplotlib.pyplot as plt
-from configuration_FM_working_oscillator import parameters
+from my_software.opx_tools.frequency_modulation.configuration_FM_working_oscillator import parameters
+import pandas as pd
 
 matplotlib.use("Qt5Agg")
 
@@ -85,9 +86,31 @@ class FM_setup:
 
         my_job = qm.execute(prog)
 
-# DEFINITION OF THE CHIRP RATES
-# -----------------------------------------------------------------------------------------
+def get_calibration_data(voltages, cal_filename="calibration_data.csv"):
+    calibration_data = pd.read_csv(cal_filename, sep="\t", index_col=0)
 
+    cal_voltages = np.array(calibration_data["voltage [V]"])
+    g_cal = np.array(calibration_data["g"])
+    phi_cal = np.array(calibration_data["phi"])
+    I_cal = np.array(calibration_data["I"])
+    Q_cal = np.array(calibration_data["Q"])
 
-fm = FM_setup()
-fm.execute_FM()
+    # interpolate calibration data to get g, phi, I, Q for the now chosen voltages
+    g = np.interp(voltages, cal_voltages, g_cal)
+    phi = np.interp(voltages, cal_voltages, phi_cal)
+    I = np.interp(voltages, cal_voltages, I_cal)
+    Q = np.interp(voltages, cal_voltages, Q_cal)
+
+    return g, phi, I, Q
+
+if __name__ == '__main__':
+
+    voltage_opx = 0.01
+    f_dev = 500e3
+    f_mod = 6.3e3
+
+    g, phi, I, Q = get_calibration_data(voltage_opx, cal_filename="..\IQ_calibration\calibration_2024-08-02-10-33-57.csv")
+    print(g)
+
+    fm = FM_setup(voltage_opx=voltage_opx, f_dev=f_dev, f_mod=f_mod, g_cor=g, phi_cor=phi, I_offset=I, Q_offset=Q)
+    fm.execute_FM()
