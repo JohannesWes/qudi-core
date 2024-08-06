@@ -8,6 +8,7 @@ import pandas as pd
 import os
 import json
 import winsound
+import traceback
 
 matplotlib.use("Qt5Agg")
 
@@ -34,9 +35,11 @@ def load_calibration_data():
     return calibration_df
 
 
-def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=np.array([0.1]), f_mod_array=np.array([6.2e3]), f_dev_array=np.array([600e3]),
+def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=np.array([0.1]),
+                    f_mod_array=np.array([6.2e3]), f_dev_array=np.array([600e3]),
                     odmr_range=[2.64e9, 2.65e9], odmr_frequency_points=1000,
-                    single_odmr_run_time=60, min_fit_amplitude=0.01, min_feature_height=0.003, which_zc=2,
+                    single_odmr_run_time=60, min_fit_amplitude=0.01, min_feature_height=0.003, n_most_prominent_peaks=3,
+                    which_zc=2,
                     n_time_traces=32, data_rate=1000):
     # folder_name for current measurement
     timestamp = datetime.now()
@@ -108,7 +111,8 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
 
             # 3) fit the hyperfine ODMR -> robust enough?
             fit_result = fit_hyperfine(frequencies, odmr_voltages, min_feature_amplitude=min_fit_amplitude,
-                                       n_most_prominent_peaks=3, plot_result=False, save_result_plot=True,
+                                       n_most_prominent_peaks=n_most_prominent_peaks, plot_result=False,
+                                       save_result_plot=True,
                                        min_feature_height=min_feature_height, filename=filename_pre)
 
             # 4) set CW frequency to the chosen zero-crossing
@@ -120,20 +124,20 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
             # 5) collect time-trace for sensitivity measurement
             sensitivity_result = LIA.sensitivity_measurement(filename_pre + "_cw_time_trace",
                                                              n_time_traces=n_time_traces,
-                                                             save_raw_data=False, save_metadata=True)
+                                                             save_raw_data=True, save_metadata=True)
 
             # 6) Reset everything
             odmr_remote.toggle_cw_output(False)
 
             # save fit results to arrays
-            linewidths[num_parameter_combinations] = fit_result["linewidths [Hz]"][which_zc]
-            peak_positions[num_parameter_combinations] = fit_result["peak_positions [Hz]"][which_zc]
-            dip_positions[num_parameter_combinations] = fit_result["dip_positions [Hz]"][which_zc]
-            peak_uncertainties[num_parameter_combinations] = fit_result["peak_uncertainties [Hz]"][which_zc]
-            dip_uncertainties[num_parameter_combinations] = fit_result["dip_uncertainties [Hz]"][which_zc]
-            zero_crossing_frequencies[num_parameter_combinations] = fit_result["zero_crossing_frequencies [Hz]"][
+            linewidths[i] = fit_result["linewidths [Hz]"][which_zc]
+            peak_positions[i] = fit_result["peak_positions [Hz]"][which_zc]
+            dip_positions[i] = fit_result["dip_positions [Hz]"][which_zc]
+            peak_uncertainties[i] = fit_result["peak_uncertainties [Hz]"][which_zc]
+            dip_uncertainties[i] = fit_result["dip_uncertainties [Hz]"][which_zc]
+            zero_crossing_frequencies[i] = fit_result["zero_crossing_frequencies [Hz]"][
                 which_zc]
-            zero_crossing_slopes[num_parameter_combinations] = fit_result["zero_crossing_slopes [V/Hz]"][which_zc]
+            zero_crossing_slopes[i] = fit_result["zero_crossing_slopes [V/Hz]"][which_zc]
 
             # 7) sensitivity analysis
             times = sensitivity_result["times"]
@@ -144,15 +148,16 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
             f_3db = sensitivity_result["metadata"]["filter_3db_freq [Hz]"]
 
             B_noise_time_trace = magnetic_field_from_voltages(demod_x_values,
-                                                              zero_crossing_slopes[num_parameter_combinations],
+                                                              zero_crossing_slopes[i],
                                                               scaling_factor=scaling)
             plot_magnetic_field_time_traces(B_noise_time_trace, times, sampling_rate, duration, save_fig=True,
                                             filename=filename_pre)
             asd_result = plot_asds(B_noise_time_trace, sampling_rate, duration, f_3db, filename=filename_pre,
                                    save_data=True, save_fig=True)
-            sensitivities[num_parameter_combinations] = asd_result["sensitivity"]
+            sensitivities[i] = asd_result["sensitivity"]
 
     except Exception as e:
+        traceback.print_exc()
         print(f"Error in measurement: {str(e)}")
 
     # create dataframe for fit results and save to csv
@@ -169,14 +174,18 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
 
 
 if __name__ == "__main__":
-    OPX_LO_voltage_array = np.linspace(0.5, 0.5, 50)
-    OPX_IF_voltage_array = np.linspace(0.1, 0.2, 50)
+    OPX_LO_voltage_array = np.linspace(0.5, 0.5, 1)
+    OPX_IF_voltage_array = np.linspace(0.1, 0.2, 1)
     f_mod_array = np.array([6.3e3])
     f_dev_array = np.array([620e3])
 
     n_time_traces = 32
-    which_zc = 0
     single_odmr_runtime = 30
+    data_rate = 200  # Hz
+
+    which_zc = 0
+    n_most_prominent_peaks = 5
+    min_fit_amplitude = 0.005
 
     laser_power = 500
 
@@ -185,8 +194,10 @@ if __name__ == "__main__":
 
     folder_name = parameter_sweep(OPX_LO_voltage_array=OPX_LO_voltage_array, OPX_IF_voltage_array=OPX_IF_voltage_array,
                                   f_mod_array=f_mod_array, f_dev_array=f_dev_array, odmr_range=odmr_range,
-                                  single_odmr_run_time=single_odmr_runtime, min_fit_amplitude=0.005, which_zc=which_zc,
-                                  n_time_traces=n_time_traces, data_rate=200)
+                                  single_odmr_run_time=single_odmr_runtime, min_fit_amplitude=min_fit_amplitude,
+                                  which_zc=which_zc,
+                                  n_most_prominent_peaks=n_most_prominent_peaks,
+                                  n_time_traces=n_time_traces, data_rate=data_rate)
 
     metadata = {"laser_power_mW": laser_power, "n_time_traces": n_time_traces,
                 "which_zc": which_zc, "single_odmr_runtime": single_odmr_runtime}
