@@ -13,7 +13,7 @@ class parameters:
         self.f_mod = 5.0e4  # modulation frequency
         self.f_dev = 200.00e3  # deviation of the modulation
         self.f_base = 200.00e6  # frequency around that we modulate: base frequency chosen as middle of bandwidth (400 MHz) of OPX
-        self.ensemble_lo = 2.73e9
+        self.ensemble_lo = 2.6e9
         #self.voltage_opx = 0.4  # peak (not peak-to-peak) output voltage of the opx
 
         # corrections for I & Q voltages; values from IQ-calibration script
