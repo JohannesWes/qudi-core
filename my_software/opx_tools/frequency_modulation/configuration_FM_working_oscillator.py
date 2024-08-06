@@ -1,9 +1,13 @@
 import numpy as np
 import math
+
 def round_to_multiple(x, base=4):
     return base * round(x / base)
+
 def lcm(x, y):
+    """"Least common multiple of x and y."""
     return abs(x * y) // math.gcd(x, y)
+
 def round_to_common_multiple(n, a, b):
     common_multiple = lcm(a, b)
     return common_multiple * round(n / common_multiple)
@@ -20,13 +24,13 @@ class parameters:
         # number of time-segments for the FM
         self.n_chirp_segments = 100
 
-        self.f_mod = 7e3  # modulation frequency. Note, that the effective modulation frequency is smaller than f_mod,
+        self.f_mod = 4.5e3  # modulation frequency. Note, that the effective modulation frequency is smaller than f_mod,
         # due to the integer multiple of 4 ns constraint on the pulse length
 
-        self.f_dev = 250e3  # deviation of the modulation
+        self.f_dev = 700e3  # deviation of the modulation
         self.f_base = 200.00e6  # frequency around that we modulate: base frequency chosen as middle of bandwidth (400 MHz) of OPX
         self.ensemble_lo = 2.73e9
-        self.voltage_opx = 0.01  # peak (not peak-to-peak) output voltage of the opx
+        self.voltage_opx = 0.023  # peak (not peak-to-peak) output voltage of the opx
 
         # corrections for I & Q voltages; values from IQ-calibration script
         self.I_offset, self.Q_offset = -0.01040, -0.01000
@@ -43,8 +47,8 @@ class parameters:
         # note, that the effective modulation frequency is smaller than f_mod, due to the above constraint on the pulse length
         #FM_period_duration = round_to_multiple(1 / f_mod / 1e-9, base=4)
 
-        print(f"\nFM_period_duration [ns], also serves as pulse length: {self.FM_period_duration()}")
-        print(f"f_mod [kHz] {1/(self.FM_period_duration()/1e9)/1e3} \n")
+        # print(f"\nFM_period_duration [ns], also serves as pulse length: {self.FM_period_duration()}")
+        # print(f"f_mod [kHz] {1/(self.FM_period_duration()/1e9)/1e3} \n")
 
     def FM_period_duration(self):
         FM_period_duration = round_to_common_multiple(1 / self.f_mod / 1e-9, 4, 4 * self.n_chirp_segments)
