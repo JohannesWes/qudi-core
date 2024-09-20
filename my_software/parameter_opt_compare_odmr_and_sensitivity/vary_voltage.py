@@ -116,7 +116,7 @@ def voltage_sweep(voltages, f_mod=4.5e3, f_dev=700e3, odmr_range=[2.64e9, 2.65e9
 
             # 5) collect time-trace for sensitivity measurement
             sensitivity_result = LIA.sensitivity_measurement(filename_pre + "_cw_time_trace", n_time_traces=n_time_traces,
-                                                             save_data=True)
+                                                             save_raw_data=True)
 
             # 6) Reset everything
             odmr_remote.toggle_cw_output(False)

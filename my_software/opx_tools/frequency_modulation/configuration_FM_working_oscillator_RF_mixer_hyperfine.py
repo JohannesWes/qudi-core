@@ -101,10 +101,6 @@ class parameters:
                     "singleInput": {"port": ("con1", self.port_reference)},
                     # frequency is updated in the program to sub-Hz resolution
                     "intermediate_frequency": 1 / (self.FM_period_duration() / 1e9),
-                    'sticky': {
-                        'analog': True,
-                        'duration': 200
-                    },
                     "operations": {
                         "const_single": "constPulse_single",
                         "zero_single": "zeroPulse_single",

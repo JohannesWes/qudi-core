@@ -80,6 +80,8 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
 
     try:
         for i in range(num_parameter_combinations):
+            print(f"Starting Measurement {i + 1}/{num_parameter_combinations}")
+
             # 1) OPX set parameters; adjust g,p,I,q parameters for the set voltages; start frequency modulation
             # 2) take a hyperfine ODMR for that voltage in known odmr range
             # 3) fit the hyperfine ODMR -> robust enough?
@@ -124,7 +126,7 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
             # 5) collect time-trace for sensitivity measurement
             sensitivity_result = LIA.sensitivity_measurement(filename_pre + "_cw_time_trace",
                                                              n_time_traces=n_time_traces,
-                                                             save_raw_data=True, save_metadata=True)
+                                                             save_raw_data=False, save_metadata=True)
 
             # 6) Reset everything
             odmr_remote.toggle_cw_output(False)
@@ -167,30 +169,33 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
               "f_dev [Hz]": f_dev_flat, "linewidths [Hz]": linewidths, "peak_positions [Hz]": peak_positions,
               "dip_positions [Hz]": dip_positions, "peak_uncertainties [Hz]": peak_uncertainties,
               "dip_uncertainties [Hz]": dip_uncertainties, "zero_crossing_frequencies [Hz]": zero_crossing_frequencies,
-              "zero_crossing_slopes [V/Hz]": zero_crossing_slopes, "sensitivities": sensitivities})
+              "zero_crossing_slopes [V/Hz]": zero_crossing_slopes, "sensitivities [nT/root(Hz)]": sensitivities})
     fit_results_df.to_csv(folder_name + "fit_results.csv", sep="\t")
 
     return folder_name
 
 
 if __name__ == "__main__":
-    OPX_LO_voltage_array = np.linspace(0.5, 0.5, 1)
-    OPX_IF_voltage_array = np.linspace(0.1, 0.2, 1)
+    # time the measurement
+    start_time = time.time()
+
+    OPX_LO_voltage_array = np.linspace(0.49, 0.5, 1)
+    OPX_IF_voltage_array = np.linspace(0.4, 0.45, 1)
     f_mod_array = np.array([6.3e3])
-    f_dev_array = np.array([620e3])
+    f_dev_array = np.linspace(640e3, 750e3, 1)
 
     n_time_traces = 32
-    single_odmr_runtime = 30
-    data_rate = 200  # Hz
+    single_odmr_runtime = 20
+    data_rate = 100  # Hz
 
-    which_zc = 0
-    n_most_prominent_peaks = 5
+    which_zc = 1
+    n_most_prominent_peaks = 3
     min_fit_amplitude = 0.005
 
     laser_power = 500
 
     # has to be list instead of np.array
-    odmr_range = [2.81e9, 2.826e9]
+    odmr_range = [2.508e9, 2.538e9]
 
     folder_name = parameter_sweep(OPX_LO_voltage_array=OPX_LO_voltage_array, OPX_IF_voltage_array=OPX_IF_voltage_array,
                                   f_mod_array=f_mod_array, f_dev_array=f_dev_array, odmr_range=odmr_range,
@@ -209,3 +214,5 @@ if __name__ == "__main__":
     duration = 1000  # milliseconds
     freq = 440  # Hz
     winsound.Beep(freq, duration)
+
+    print(f"Measurement took {(time.time() - start_time) / 60} minutes, or {(time.time() - start_time) / 3600} hours.")

@@ -10,6 +10,7 @@ import time
 import rpyc
 import functools
 
+
 def logger():
     return logging.getLogger(__name__)
 
@@ -133,8 +134,10 @@ class OdmrRemoteControl(QudiRemoteControl):
             raise
 
     @log
-    def take_odmr_scan(self, filename, min_run_time, frequency_start, frequency_stop, frequency_points, save_data=True, data_rate=1000):
-        self.set_odmr_parameters(run_time=min_run_time, frequency_start=frequency_start, frequency_stop=frequency_stop, frequency_points=frequency_points, data_rate=data_rate)
+    def take_odmr_scan(self, filename, min_run_time, frequency_start, frequency_stop, frequency_points, save_data=True,
+                       data_rate=1000):
+        self.set_odmr_parameters(run_time=min_run_time, frequency_start=frequency_start, frequency_stop=frequency_stop,
+                                 frequency_points=frequency_points, data_rate=data_rate)
         self.start_odmr_scan()
         while self._odmr_module.module_state() == 'locked':
             time.sleep(min_run_time / 10)
@@ -142,7 +145,8 @@ class OdmrRemoteControl(QudiRemoteControl):
             self.save_odmr_scan(filename, use_timestamp=True, save_thumbnails=True)
 
         # return ODMR data (element 0 is frequency array, element 1 is signal array)
-        return np.array(self._odmr_module._join_signal_data().T[0]), np.array(self._odmr_module._join_signal_data().T[1])
+        return np.array(self._odmr_module._join_signal_data().T[0]), np.array(
+            self._odmr_module._join_signal_data().T[1])
 
     @log
     def set_cw_parameters(self, frequency=2.7e9, power=13):
@@ -171,5 +175,4 @@ if __name__ == '__main__':
     folder_name = "folder"
     file_name = folder_name + "/" + "filename"
 
-    #odmr_remote.start_odmr_scan()
-
+    # odmr_remote.start_odmr_scan()

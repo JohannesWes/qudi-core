@@ -126,7 +126,6 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
     # -----------------------------------
     # DETERMINING ROUGH FEATURE POSITIONS
     # -----------------------------------
-
     frequency_spacing = (frequency_array[-1] - frequency_array[0]) / len(frequency_array)
     min_feature_distance_in_samples = feature_distance_in_Hz / frequency_spacing
 
@@ -144,6 +143,9 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
     # Get the indices of the n most prominent peaks
     if n_most_prominent_peaks is not None:
         peaks_indices = peaks_indices[np.argsort(peaks_properties["prominences"])[-n_most_prominent_peaks:]]
+
+
+
         dips_indices = dips_indices[np.argsort(dips_properties["prominences"])[-n_most_prominent_peaks:]]
 
         # Sort the peaks and dips by frequency
@@ -269,14 +271,16 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
     # Plot the smoothed curve with the peaks and dips for TESTING PURPOSES
     if plot_result or save_result_plot:
         fig_result, ax_result = plt.subplots()
-        ax_result.plot(frequency_array, smoothed_voltage_array, label="smoothed", zorder=2, alpha=0.75)
-        ax_result.plot(frequency_array, voltage_array, label="original", zorder=1, alpha=0.75, color="orange")
-        ax_result.scatter(frequency_array[peaks_indices], smoothed_voltage_array[peaks_indices], color='red',
+        ax_result.plot(frequency_array/1e6, smoothed_voltage_array, label="smoothed", zorder=2, alpha=0.75)
+        ax_result.plot(frequency_array/1e6, voltage_array, label="original", zorder=1, alpha=0.75, color="orange")
+        ax_result.scatter(frequency_array[peaks_indices]/1e6, smoothed_voltage_array[peaks_indices], color='red',
                           label="Peaks",
                           zorder=3)
-        ax_result.scatter(frequency_array[dips_indices], smoothed_voltage_array[dips_indices], color='green',
+        ax_result.scatter(frequency_array[dips_indices]/1e6, smoothed_voltage_array[dips_indices], color='green',
                           label="Dips",
                           zorder=3)
+        ax_result.set_xlabel("Frequency [MHz]")
+        ax_result.set_ylabel("Voltage [V]")
 
     # -----------------------------------
     # DETERMINE ZERO CROSSINGS AND SLOPES
@@ -307,7 +311,7 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
 
         # plot fitted lines
         if plot_result or save_result_plot:
-            ax_result.plot(frequencies_around_zero, slope * frequencies_around_zero + intercept, color="purple",
+            ax_result.plot(frequencies_around_zero/1e6, slope * frequencies_around_zero + intercept, color="purple",
                            linestyle='-', linewidth=2, zorder=3)
 
     if plot_result or save_result_plot:

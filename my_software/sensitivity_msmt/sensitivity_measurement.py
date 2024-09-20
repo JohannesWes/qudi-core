@@ -104,7 +104,7 @@ class lock_in_amp():
         axis.set_ylabel("Signal(V)")
         plt.show()
 
-    def sensitivity_measurement(self, file_name_save, n_time_traces=32, plot_demod=False,save_data=False):
+    def sensitivity_measurement(self, file_name_save, n_time_traces=32, plot_demod=False, save_raw_data=False, save_metadata=True):
         """Perform a sensitivity measurement."""
 
         total_duration = 1 * n_time_traces  # [s]
@@ -118,15 +118,14 @@ class lock_in_amp():
                     "filter_sinc": acq_data["filter_sinc"], "aux_0_scaling": acq_data["aux_0_scaling"], "duration": total_duration,
                     "sampling_rate":  sampling_rate}
 
-        if save_data:
+        if save_raw_data:
             pd_data = pd.DataFrame({"times [s]": times, "x_value [V]": x_value, "y_value [V]": y_value})
             pd_data.to_csv(file_name_save + ".csv", sep="\t")
 
+        if save_metadata:
             # store metadata in a json file
             with open(file_name_save + "_metadata.json", 'w') as f:
                 json.dump(metadata, f)
-            
-
 
         if plot_demod:
             self.plot_demod_time_traces(times, x_value, y_value)
@@ -136,4 +135,4 @@ class lock_in_amp():
 
 if __name__ == "__main__":
     LIA = lock_in_amp()
-    LIA.sensitivity_measurement("test", n_time_traces=1, save_data=True, plot_demod=False)
+    LIA.sensitivity_measurement("test", n_time_traces=1, save_raw_data=True, plot_demod=False)
