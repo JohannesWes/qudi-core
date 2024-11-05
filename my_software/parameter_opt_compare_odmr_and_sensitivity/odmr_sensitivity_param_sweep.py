@@ -78,8 +78,9 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
     zero_crossing_frequencies, zero_crossing_slopes = np.zeros(num_parameter_combinations), np.zeros(
         num_parameter_combinations)
 
-    try:
-        for i in range(num_parameter_combinations):
+
+    for i in range(num_parameter_combinations):
+        try:
             print(f"Starting Measurement {i + 1}/{num_parameter_combinations}")
 
             # 1) OPX set parameters; adjust g,p,I,q parameters for the set voltages; start frequency modulation
@@ -97,7 +98,7 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
                           f_mod=f_mod_flat[i],
                           f_dev=f_dev_flat[i], g_cor=g[i], phi_cor=phi[i], I_offset=I[i], Q_offset=Q[i])
             fm.execute_FM()
-            time.sleep(0.5)
+            time.sleep(60)
 
             # 2) take a hyperfine ODMR for that voltage in known odmr range
             frequencies, odmr_voltages = odmr_remote.take_odmr_scan(filename_pre + "_ODMR", single_odmr_run_time,
@@ -158,9 +159,9 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
                                    save_data=True, save_fig=True)
             sensitivities[i] = asd_result["sensitivity"]
 
-    except Exception as e:
-        traceback.print_exc()
-        print(f"Error in measurement: {str(e)}")
+        except Exception as e:
+            traceback.print_exc()
+            print(f"Error in measurement: {str(e)}")
 
     # create dataframe for fit results and save to csv
     fit_results_df = pd.DataFrame(
@@ -176,43 +177,96 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
 
 
 if __name__ == "__main__":
-    # time the measurement
-    start_time = time.time()
 
-    OPX_LO_voltage_array = np.linspace(0.49, 0.5, 1)
-    OPX_IF_voltage_array = np.linspace(0.4, 0.45, 1)
-    f_mod_array = np.array([6.3e3])
-    f_dev_array = np.linspace(640e3, 750e3, 1)
+    #time.sleep(1000)
 
-    n_time_traces = 32
-    single_odmr_runtime = 20
-    data_rate = 100  # Hz
+    for odmr_range in [[2.518e9, 2.534e9]]:
+        # try:
+        #     start_time = time.time()
+        #
+        #     OPX_LO_voltage_array = np.linspace(0.001, 0.0011, 1)
+        #     OPX_IF_voltage_array = np.linspace(0.0, 0.45, 1)
+        #     f_mod_array = np.array([6.3e3])
+        #     f_dev_array = np.linspace(100e3, 200e3, 1)
+        #
+        #     n_time_traces = 8
+        #     single_odmr_runtime = 3600
+        #     data_rate = 1000  # Hz
+        #
+        #     which_zc = 0
+        #     n_most_prominent_peaks = 3
+        #     min_fit_amplitude = 0.0005
+        #
+        #     laser_power = 150
+        #
+        #     # has to be list instead of np.array
+        #     #odmr_range = [2.783e9, 2.791e9]
+        #
+        #     folder_name = parameter_sweep(OPX_LO_voltage_array=OPX_LO_voltage_array, OPX_IF_voltage_array=OPX_IF_voltage_array,
+        #                                   f_mod_array=f_mod_array, f_dev_array=f_dev_array, odmr_range=odmr_range,
+        #                                   single_odmr_run_time=single_odmr_runtime, min_fit_amplitude=min_fit_amplitude,
+        #                                   which_zc=which_zc,
+        #                                   n_most_prominent_peaks=n_most_prominent_peaks,
+        #                                   n_time_traces=n_time_traces, data_rate=data_rate)
+        #
+        #     metadata = {"laser_power_mW": laser_power, "n_time_traces": n_time_traces,
+        #                 "which_zc": which_zc, "single_odmr_runtime": single_odmr_runtime}
+        #     # save metadata to a json file
+        #     with open(folder_name + "leerlauf_sweep_metadata" + ".json", "w") as f:
+        #         json.dump(metadata, f)
+        #
+        #     # play sound when measurement is finished
+        #     duration = 1000  # milliseconds
+        #     freq = 440  # Hz
+        #     winsound.Beep(freq, duration)
+        #
+        #     print(f"Measurement took {(time.time() - start_time) / 60} minutes, or {(time.time() - start_time) / 3600} hours.")
+        #
+        # except:
+        #     pass
 
-    which_zc = 1
-    n_most_prominent_peaks = 3
-    min_fit_amplitude = 0.005
 
-    laser_power = 500
+        #--------------------------------------------------------------------------------------------------------------------#
 
-    # has to be list instead of np.array
-    odmr_range = [2.508e9, 2.538e9]
+        # time the measurement
+        start_time = time.time()
+        #time.sleep(300)
+        OPX_LO_voltage_array = np.linspace(0.5, 0.5, 1)
+        #OPX_LO_voltage_array = np.array([0.005, 0.01, 0.015, 0.02, 0.025, 0.03, 0.035, 0.04, 0.045, 0.05, 0.055, 0.06, 0.065, 0.07, 0.075])
+        OPX_IF_voltage_array = np.linspace(0.03, 0.33, 10)
+        f_mod_array = np.array([6.3e3])
+        f_dev_array = np.linspace(400e3, 700e3, 1)
 
-    folder_name = parameter_sweep(OPX_LO_voltage_array=OPX_LO_voltage_array, OPX_IF_voltage_array=OPX_IF_voltage_array,
-                                  f_mod_array=f_mod_array, f_dev_array=f_dev_array, odmr_range=odmr_range,
-                                  single_odmr_run_time=single_odmr_runtime, min_fit_amplitude=min_fit_amplitude,
-                                  which_zc=which_zc,
-                                  n_most_prominent_peaks=n_most_prominent_peaks,
-                                  n_time_traces=n_time_traces, data_rate=data_rate)
+        n_time_traces = 16
+        single_odmr_runtime = 30
+        data_rate = 1000  # Hz
+        odmr_frequency_points = 1000
 
-    metadata = {"laser_power_mW": laser_power, "n_time_traces": n_time_traces,
-                "which_zc": which_zc, "single_odmr_runtime": single_odmr_runtime}
-    # save metadata to a json file
-    with open(folder_name + "sweep_metadata" + ".json", "w") as f:
-        json.dump(metadata, f)
+        which_zc = 2
+        n_most_prominent_peaks = 5
+        min_fit_amplitude = 0.001
 
-    # play sound when measurement is finished
-    duration = 1000  # milliseconds
-    freq = 440  # Hz
-    winsound.Beep(freq, duration)
+        laser_power = 500
 
-    print(f"Measurement took {(time.time() - start_time) / 60} minutes, or {(time.time() - start_time) / 3600} hours.")
+        # has to be list instead of np.array
+        # odmr_range = [2.783e9, 2.791e9]
+
+        folder_name = parameter_sweep(OPX_LO_voltage_array=OPX_LO_voltage_array, OPX_IF_voltage_array=OPX_IF_voltage_array,
+                                      f_mod_array=f_mod_array, f_dev_array=f_dev_array, odmr_range=odmr_range,
+                                      single_odmr_run_time=single_odmr_runtime, min_fit_amplitude=min_fit_amplitude,
+                                      which_zc=which_zc,
+                                      n_most_prominent_peaks=n_most_prominent_peaks,
+                                      n_time_traces=n_time_traces, data_rate=data_rate, odmr_frequency_points=odmr_frequency_points)
+
+        metadata = {"laser_power_mW": laser_power, "n_time_traces": n_time_traces,
+                    "which_zc": which_zc, "single_odmr_runtime": single_odmr_runtime}
+        # save metadata to a json file
+        with open(folder_name + "sweep_metadata" + ".json", "w") as f:
+            json.dump(metadata, f)
+
+        # play sound when measurement is finished
+        duration = 1000  # milliseconds
+        freq = 440  # Hz
+        winsound.Beep(freq, duration)
+
+        print(f"Measurement took {(time.time() - start_time) / 60} minutes, or {(time.time() - start_time) / 3600} hours.")

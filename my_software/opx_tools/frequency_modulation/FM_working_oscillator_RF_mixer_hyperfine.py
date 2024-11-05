@@ -122,10 +122,10 @@ def get_calibration_data(voltages, cal_filename="calibration_data.csv"):
 
 if __name__ == '__main__':
 
-    OPX_LO_voltage = 0.0
-    OPX_IF_voltage = 0.0
+    OPX_LO_voltage = 0.5
+    OPX_IF_voltage = 0.03
 
-    f_dev = 500e3
+    f_dev = 75e3
     f_mod = 6.3e3
 
     g, phi, I, Q = get_calibration_data(OPX_LO_voltage,
