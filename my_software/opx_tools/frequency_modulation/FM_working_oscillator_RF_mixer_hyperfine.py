@@ -100,6 +100,8 @@ class FM_setup:
                 play("const_single_IF_hyperfine", "IF_hyperfine")
 
         my_job = qm.execute(prog)
+        # print("Report:", my_job.execution_report())
+
 
 
 def get_calibration_data(voltages, cal_filename="calibration_data.csv"):
@@ -122,10 +124,11 @@ def get_calibration_data(voltages, cal_filename="calibration_data.csv"):
 
 if __name__ == '__main__':
 
-    OPX_LO_voltage = 0.5
-    OPX_IF_voltage = 0.03
+    # keep OPX voltage below 0.4 for mitigating voltage overflow issues
+    OPX_LO_voltage = 0.4
+    OPX_IF_voltage = 0.1
 
-    f_dev = 75e3
+    f_dev = 250e3
     f_mod = 6.3e3
 
     g, phi, I, Q = get_calibration_data(OPX_LO_voltage,
