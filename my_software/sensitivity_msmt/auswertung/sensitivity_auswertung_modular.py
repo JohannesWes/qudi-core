@@ -118,3 +118,52 @@ def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, 
 
     return {"frequencies": welch_x_hanning[0], "asd_hanning": asd_hanning, "asd_boxcar": asd_boxcar,
             "sensitivity": sensitivity_nT_root_Hz}
+
+
+def allan_deviation(x, sampling_rate, m_values=None):
+    """
+    Compute the Allan deviation of time-series data.
+
+    Args:
+        x (np.ndarray): 1D array of time-series data.
+        sampling_rate (float): Sampling rate in Hz.
+        m_values (array-like, optional): Array of block sizes (m). Each block size corresponds 
+                                         to an averaging time tau = m / sampling_rate.
+                                         If None, a default set of m values (powers of 2) is used.
+
+    Returns:
+        tau_values (np.ndarray): Averaging times corresponding to each m (in seconds).
+        allan_dev (np.ndarray): Allan deviation values for each tau.
+    """
+    x = np.asarray(x)
+    N = len(x)
+    dt = 1.0 / sampling_rate
+
+    if m_values is None:
+        # By default, use a set of block sizes that are powers of two, up to N/2
+        max_m = N // 2
+        # Generate a geometric sequence of m values (powers of 2) that don't exceed max_m
+        m_values = 2 ** np.arange(int(np.floor(np.log2(max_m))) + 1)
+
+    tau_values = m_values * dt
+    allan_dev = np.zeros_like(m_values, dtype=float)
+
+    # Compute Allan deviation for each m
+    for i, m in enumerate(m_values):
+        # Number of block averages
+        num_blocks = N // m
+        if num_blocks < 2:
+            allan_dev[i] = np.nan
+            continue
+
+        # Compute block averages Y_k(m)
+        # Y_k(m) = average of B_time_trace from k*m to k*m+m-1
+        block_averages = np.array([np.mean(x[k * m:(k + 1) * m]) for k in range(num_blocks)])
+
+        # Allan variance:
+        # sigma^2 = (1/(2*(num_blocks-1))) * sum( (Y_(k+1)(m)-Y_k(m))^2 )
+        diff = np.diff(block_averages)
+        allan_var = 0.5 * np.mean(diff ** 2)
+        allan_dev[i] = np.sqrt(allan_var)
+
+    return tau_values, allan_dev
