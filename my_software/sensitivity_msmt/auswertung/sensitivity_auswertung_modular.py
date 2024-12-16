@@ -35,8 +35,10 @@ def magnetic_field_from_voltages(voltages, slope, scaling_factor=1):
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# PLOT MAGNETIC FIELD NOISE TIME TRACES
-def plot_magnetic_field_time_traces(samples_x_B_field, times, sample_rate, duration, save_fig=False, filename=None):
+def plot_magnetic_field_time_traces(samples_x_B_field, times, sample_rate, duration, save_fig=False, filename_prefix=None):
+    """
+    Plot magnetic field noise for {duration} seconds.
+    """
     fig, axs = plt.subplots(2, 1)
 
     axs[0].plot(times[0:int(sample_rate * int(duration))], samples_x_B_field[0:int(sample_rate * int(duration))],
@@ -54,13 +56,16 @@ def plot_magnetic_field_time_traces(samples_x_B_field, times, sample_rate, durat
     axs[1].set_ylabel("Magnetic Field [nT]")
     fig.tight_layout()
     if save_fig:
-        fig.savefig(filename + "_magnetic_field_time_traces.pdf")
+        fig.savefig(filename_prefix + "_magnetic_field_time_traces.pdf")
     plt.close(fig)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-def plot_voltage_time_traces(samples_x, times, sample_rate, duration, save_fig=False, filename=None):
+def plot_voltage_time_traces(samples_x, times, sample_rate, duration, save_fig=False, filename_prefix=None):
+    """
+    Plot voltage noise for {duration} seconds.
+    """
     fig, axs = plt.subplots(2, 1)
 
     axs[0].plot(times[0:int(sample_rate * int(duration))], samples_x[0:int(sample_rate * int(duration))],
@@ -78,58 +83,130 @@ def plot_voltage_time_traces(samples_x, times, sample_rate, duration, save_fig=F
     axs[1].set_ylabel("Voltage [V]")
     fig.tight_layout()
     if save_fig:
-        fig.savefig(filename + "_voltage_field_time_traces.pdf")
+        fig.savefig(filename_prefix + "_voltage_field_time_traces.pdf")
     plt.close(fig)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, save_data=True, filename=None):
+def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, save_data=True, filename_prefix=None):
     fig, ax = plt.subplots()
 
     welch_x_hanning = welch(samples_x_B_field, fs=sample_rate, nperseg=sample_rate, noverlap=0, window='hann')
     welch_x_boxcar = welch(samples_x_B_field, fs=sample_rate, nperseg=sample_rate, noverlap=0, window="boxcar")
+    frequencies = welch_x_hanning[0]
 
-    sensitivity_nT_root_Hz = np.mean(
+    # sensitivity via the standard deviation of the time series, not filtered
+    sensitivity_sigma = np.mean(
         [np.std(samples_x_B_field[i * int(sample_rate):(i + 1) * int(sample_rate)]) for i in
          range(int(duration))]) / np.sqrt(2 * f_ENBW)
 
     asd_hanning, asd_boxcar = np.sqrt(welch_x_hanning[1]), np.sqrt(welch_x_boxcar[1])
+    hanning_noise_floor, bandwidth = calculate_asd_noise_floor(frequencies , asd_hanning, 10, f_ENBW, filter_frequencies=[50, 100, 150, 200, 250, 300, 350, 400, 450])
+
 
     ax.plot(welch_x_hanning[0], asd_hanning, label="Hann window", alpha=0.7, linestyle="--", color="dimgray")
     ax.plot(welch_x_boxcar[0], asd_boxcar, label="Boxcar window", alpha=0.7, linestyle="-.")
+    ax.axhline(hanning_noise_floor, color='r', linestyle='--')
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_title(f"Amplitude spectral density of the x-component of the magnetic field\n"
-                 f"Sensitivity: {sensitivity_nT_root_Hz:.2f} nT/sqrt(Hz)")
+                 f"Sensitivity: {hanning_noise_floor:.2f} nT/sqrt(Hz)")
     ax.set_xlabel("Frequency [Hz]")
-    ax.set_ylabel("Sqrt of power spectral density [nT/sqrt(Hz)]")
+    ax.set_ylabel("Noise Amplitude Spectral Density [nT/"+r"$\sqrt{\mathrm{Hz}}$"+"]")
     ax.set_ylim([1E-4, 1E3])
     ax.grid()
     # ax.set_ylim(bottom=np.min(asd_hanning, asd_boxcar) / 10, top=np.max(asd_hanning, asd_boxcar) * 10)
     ax.legend()
     fig.tight_layout()
-    if save_fig and filename is not None:
-        fig.savefig(filename + "_ASD.pdf")
-    if save_data and filename is not None:
+    if save_fig and filename_prefix is not None:
+        fig.savefig(filename_prefix + "_ASD.pdf")
+    if save_data and filename_prefix is not None:
         asd_df = pd.DataFrame(
             data={"frequencies": welch_x_hanning[0], "asd_hanning": asd_hanning, "asd_boxcar": asd_boxcar})
-        asd_df.to_csv(filename + "_ASD.csv", sep="\t")
+        asd_df.to_csv(filename_prefix + "_ASD.csv", sep="\t")
     plt.close(fig)
 
     return {"frequencies": welch_x_hanning[0], "asd_hanning": asd_hanning, "asd_boxcar": asd_boxcar,
-            "sensitivity": sensitivity_nT_root_Hz}
+            "sensitivity": hanning_noise_floor, "sensitivity_sigma": sensitivity_sigma}
 
 
-def allan_deviation(x, sampling_rate, m_values=None):
+
+def calculate_asd_noise_floor(freqs, asd_values, f1, f2, filter_frequencies=None, filter_intervals=None):
+    """
+    Calculate the noise floor of the Amplitude Spectral Density (ASD) within a specified frequency range.
+
+    Args:
+        freqs (array-like): Frequencies corresponding to the ASD values.
+        asd_values (array-like): ASD values corresponding to `freqs`.
+        f1 (float): Lower bound of the frequency range.
+        f2 (float): Upper bound of the frequency range.
+        filter_frequencies (list, optional): Specific frequencies to filter out from the ASD data.
+        filter_intervals (list of tuples, optional): Frequency intervals to filter out from the ASD data.
+
+    Returns:
+        tuple: (mean_asd, equivalent_bandwidth)
+            mean_asd (float): Mean ASD value within the specified frequency range.
+            equivalent_bandwidth (float): Adjusted bandwidth after filtering.
+    """
+    # Convert inputs to numpy arrays
+    freqs = np.asarray(freqs)
+    asd_values = np.asarray(asd_values)
+
+    # Initial bandwidth
+    bandwidth = f2 - f1
+
+    # Filter out specific frequencies if provided
+    if filter_frequencies is not None and len(filter_frequencies) > 0:
+        # Create mask to exclude filter_frequencies
+        mask = ~np.isin(freqs, filter_frequencies)
+        freqs = freqs[mask]
+        asd_values = asd_values[mask]
+
+        # Adjust bandwidth by the count of removed frequencies (as in the original code)
+        bandwidth = bandwidth - len(filter_frequencies)
+
+    # Filter out frequency intervals if provided
+    if filter_intervals is not None:
+        for (start_freq, end_freq) in filter_intervals:
+            # Mask to keep only frequencies outside the given interval
+            mask = (freqs < start_freq) | (freqs > end_freq)
+            freqs = freqs[mask]
+            asd_values = asd_values[mask]
+
+            # Adjust bandwidth by the size of the removed interval
+            bandwidth = bandwidth - (end_freq - start_freq)
+
+    # Filter out frequencies outside the interval [f1, f2]
+    within_range_mask = (freqs >= f1) & (freqs <= f2)
+    freqs = freqs[within_range_mask]
+    asd_values = asd_values[within_range_mask]
+
+    # Compute mean ASD and handle the case where no frequencies remain
+    if len(freqs) == 0:
+        mean_asd = float('nan')
+        equivalent_bandwidth = 0.0
+    else:
+        mean_asd = np.mean(asd_values)
+        # The original logic returns the 'bandwidth' variable directly
+        equivalent_bandwidth = bandwidth
+
+    return mean_asd, equivalent_bandwidth
+
+
+
+def allan_deviation(x, sampling_rate, m_values=None, m_mode='linear'):
     """
     Compute the Allan deviation of time-series data.
 
     Args:
         x (np.ndarray): 1D array of time-series data.
         sampling_rate (float): Sampling rate in Hz.
-        m_values (array-like, optional): Array of block sizes (m). Each block size corresponds 
+        m_values (array-like, optional): Array of block sizes (m). Each block size corresponds
                                          to an averaging time tau = m / sampling_rate.
-                                         If None, a default set of m values (powers of 2) is used.
+                                         If None, the function will generate m-values based on m_mode.
+        m_mode (str): If m_values is None, defines how to generate m-values.
+                      'linear' -> use all integer m-values from 1 to N//2
+                      'log2' -> use powers-of-two spaced m-values up to N//2
 
     Returns:
         tau_values (np.ndarray): Averaging times corresponding to each m (in seconds).
@@ -140,30 +217,56 @@ def allan_deviation(x, sampling_rate, m_values=None):
     dt = 1.0 / sampling_rate
 
     if m_values is None:
-        # By default, use a set of block sizes that are powers of two, up to N/2
         max_m = N // 2
-        # Generate a geometric sequence of m values (powers of 2) that don't exceed max_m
-        m_values = 2 ** np.arange(int(np.floor(np.log2(max_m))) + 1)
+        if max_m < 1:
+            raise ValueError("Time series too short to compute Allan deviation for any m > 1.")
+
+        if m_mode == 'linear':
+            # Use all integers from 1 to max_m
+            m_values = np.arange(1, max_m + 1)
+        elif m_mode == 'log2':
+            # Use powers of 2 up to max_m
+            m_values = 2 ** np.arange(int(np.floor(np.log2(max_m))) + 1)
+        else:
+            raise ValueError(f"Unknown m_mode '{m_mode}'. Choose 'linear' or 'log2'.")
 
     tau_values = m_values * dt
     allan_dev = np.zeros_like(m_values, dtype=float)
 
     # Compute Allan deviation for each m
     for i, m in enumerate(m_values):
-        # Number of block averages
         num_blocks = N // m
         if num_blocks < 2:
             allan_dev[i] = np.nan
             continue
 
-        # Compute block averages Y_k(m)
-        # Y_k(m) = average of B_time_trace from k*m to k*m+m-1
         block_averages = np.array([np.mean(x[k * m:(k + 1) * m]) for k in range(num_blocks)])
-
-        # Allan variance:
-        # sigma^2 = (1/(2*(num_blocks-1))) * sum( (Y_(k+1)(m)-Y_k(m))^2 )
         diff = np.diff(block_averages)
         allan_var = 0.5 * np.mean(diff ** 2)
         allan_dev[i] = np.sqrt(allan_var)
 
     return tau_values, allan_dev
+
+
+
+def plot_allan_deviation(tau_values, allan_dev, save_fig=False, save_data=True, filename_prefix=None):
+    fig, ax = plt.subplots()
+
+    ax.plot(tau_values, allan_dev, label="Allan Deviation", alpha=0.7, linestyle="-", color="black")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_title("Allan Deviation")
+    ax.set_xlabel("Averaging Time [s]")
+    ax.set_ylabel("Allan Deviation [nT]")
+    ax.grid()
+    ax.legend()
+    fig.tight_layout()
+    if save_fig and filename_prefix is not None:
+        fig.savefig(filename_prefix + "_Allan_Deviation.pdf")
+    if save_data and filename_prefix is not None:
+        allan_df = pd.DataFrame(data={"tau_values": tau_values, "allan_dev": allan_dev})
+        allan_df.to_csv(filename_prefix + "_Allan_Deviation.csv", sep="\t")
+    plt.close(fig)
+
+
+
