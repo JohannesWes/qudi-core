@@ -19,7 +19,7 @@ def smooth(y, box_pts):
     return y_smooth
 
 
-def evaluate_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, min_feature_amplitude=0.02,
+def evaluate_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, feature_prominence=0.02,
                        zero_crossings_fit_range=0.1e6):
     """
     This function finds the peaks and dips in the ODMR signal and fits straight lines around the zero crossings.
@@ -30,7 +30,7 @@ def evaluate_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.
         frequency_array (ndarray): Array of frequencies
         voltage_array (ndarray): Array of voltages
         feature_distance_in_Hz (float): The minimum distance between separate peaks/dips in Hz
-        min_feature_amplitude (float): The absolute of the minimum amplitude of a peak/dip
+        feature_prominence (float): The absolute of the minimum amplitude of a peak/dip
         zero_crossings_fit_range (float): The range in Hz around the zero crossings to fit straight lines
 
     Returns:
@@ -51,9 +51,9 @@ def evaluate_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.
     min_feature_distance_in_samples = feature_distance_in_Hz / frequency_spacing
 
     peaks_indices, _ = find_peaks(voltage_array, height=0.02, distance=min_feature_distance_in_samples,
-                                  prominence=min_feature_amplitude)
+                                  prominence=feature_prominence)
     dips_indices, _ = find_peaks(-voltage_array, height=0.02, distance=min_feature_distance_in_samples,
-                                 prominence=min_feature_amplitude)
+                                 prominence=feature_prominence)
 
     zero_crossings_indices = np.array(dips_indices + (peaks_indices - dips_indices) / 2).astype(int)
 
@@ -85,22 +85,21 @@ def evaluate_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.
     return peaks_indices, dips_indices, zero_crossings_indices, slopes, intercepts, linewidths
 
 
-def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, min_feature_amplitude=0.02,
+def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, feature_prominence=0.02,
                   min_feature_height=0.02, n_most_prominent_peaks=None, use_peak_finding_if_fitting_fails=True,
                   zero_crossings_fit_range=0.1e6,
                   feature_fit_range=0.2e6, plot_all=False, plot_result=False, save_result_plot=False, filename=None):
     """
     This function finds the peaks and dips in the ODMR signal and fits straight lines around the zero crossings.
-    It is ment for high-quality hyperfine ODMR spectra, where the peaks/dips can be identified by the maximum/minimum
-    values instead of having to perform fits. Compared to evaluate_hyperfine, this function fits parabolas to the peaks
+    It is ment for high-quality hyperfine ODMR spectra, without much noise. Compared to evaluate_hyperfine, this function fits parabolas to the peaks
     and dips to more accurately determine their positions.
 
     Args:
         frequency_array (ndarray): Array of frequencies
         voltage_array (ndarray): Array of voltages
         feature_distance_in_Hz (float): The minimum distance between separate peaks/dips in Hz
-        min_feature_amplitude (float): The absolute of the minimum amplitude of a peak/dip
-        min_feature_height:
+        feature_prominence (float): The absolute of the minimum amplitude of a peak/dip
+        min_feature_height (float): The minimum height of a peak/dip
         n_most_prominent_peaks: How many peaks should be found, only considers the n most prominent peaks
         zero_crossings_fit_range (float): The range in Hz around the zero crossings to fit straight lines
         feature_fit_range:
@@ -135,10 +134,10 @@ def fit_hyperfine(frequency_array, voltage_array, feature_distance_in_Hz=0.5e6, 
 
     peaks_indices, peaks_properties = find_peaks(smoothed_voltage_array, height=min_feature_height,
                                                  distance=int(min_feature_distance_in_samples),
-                                                 prominence=min_feature_amplitude)
+                                                 prominence=feature_prominence)
     dips_indices, dips_properties = find_peaks(-smoothed_voltage_array, height=min_feature_height,
                                                distance=int(min_feature_distance_in_samples),
-                                               prominence=min_feature_amplitude)
+                                               prominence=feature_prominence)
 
     # Get the indices of the n most prominent peaks
     if n_most_prominent_peaks is not None:
