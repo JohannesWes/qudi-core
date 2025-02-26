@@ -46,7 +46,7 @@ class NGP_instance():
         self.large_R = 0.1045
 
         try:
-            self.driver = RsNgx('ASRL5::INSTR', reset=True)
+            self.driver = RsNgx('USB0::0x0AAD::0x0197::5601.4007k03-101169::INSTR', reset=True)
         except:
             logging.error(f"Could not connect to the NGP.")
             raise
