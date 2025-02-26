@@ -96,12 +96,13 @@ def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, 
     frequencies = welch_x_hanning[0]
 
     # sensitivity via the standard deviation of the time series, not filtered
-    sensitivity_sigma = np.mean(
+    sensitivity_std = np.mean(
         [np.std(samples_x_B_field[i * int(sample_rate):(i + 1) * int(sample_rate)]) for i in
          range(int(duration))]) / np.sqrt(2 * f_ENBW)
 
     asd_hanning, asd_boxcar = np.sqrt(welch_x_hanning[1]), np.sqrt(welch_x_boxcar[1])
-    hanning_noise_floor, bandwidth = calculate_asd_noise_floor(frequencies , asd_hanning, 10, f_ENBW, filter_frequencies=[50, 100, 150, 200, 250, 300, 350, 400, 450])
+    hanning_noise_floor, bandwidth = calculate_asd_noise_floor(frequencies , asd_hanning, 10, f_ENBW, filter_frequencies=[100, 150, 200, 250, 300, 350, 400, 450],
+                                                               filter_intervals=[[48,52]])
 
 
     ax.plot(welch_x_hanning[0], asd_hanning, label="Hann window", alpha=0.7, linestyle="--", color="dimgray")
@@ -127,7 +128,7 @@ def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, 
     plt.close(fig)
 
     return {"frequencies": welch_x_hanning[0], "asd_hanning": asd_hanning, "asd_boxcar": asd_boxcar,
-            "sensitivity": hanning_noise_floor, "sensitivity_sigma": sensitivity_sigma}
+            "sensitivity": hanning_noise_floor, "sensitivity_std": sensitivity_std}
 
 
 
@@ -264,7 +265,7 @@ def plot_allan_deviation(tau_values, allan_dev, save_fig=False, save_data=True, 
     if save_fig and filename_prefix is not None:
         fig.savefig(filename_prefix + "_Allan_Deviation.pdf")
     if save_data and filename_prefix is not None:
-        allan_df = pd.DataFrame(data={"tau_values": tau_values, "allan_dev": allan_dev})
+        allan_df = pd.DataFrame(data={"tau values [s]": tau_values, "allan deviaton [nT]": allan_dev})
         allan_df.to_csv(filename_prefix + "_Allan_Deviation.csv", sep="\t")
     plt.close(fig)
 
