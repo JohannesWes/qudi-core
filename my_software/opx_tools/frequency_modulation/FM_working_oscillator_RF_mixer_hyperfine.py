@@ -126,10 +126,10 @@ if __name__ == '__main__':
 
     # keep OPX voltage below 0.4 for mitigating voltage overflow issues
     OPX_LO_voltage = 0.4
-    OPX_IF_voltage = 0.1
+    OPX_IF_voltage = 0.2
 
-    f_dev = 250e3
-    f_mod = 6.3e3
+    f_dev = 500e3
+    f_mod = 10e3
 
     g, phi, I, Q = get_calibration_data(OPX_LO_voltage,
                                         cal_filename="..\IQ_calibration\calibration_2024-08-02-10-33-57.csv")
