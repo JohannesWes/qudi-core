@@ -8,6 +8,7 @@ import winsound
 import traceback
 import logging
 from datetime import datetime
+from itertools import product
 
 matplotlib.use("Qt5Agg")
 
@@ -37,7 +38,7 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
                     single_odmr_run_time=60, min_fit_amplitude=0.01, min_feature_height=0.003, n_most_prominent_peaks=3,
                     which_zc=2,
                     n_time_traces=32, data_rate=1000,
-                    loop_order=None):
+                    loop_order=None, include_off_resonant_sensitivity=False):
     """
     Perform a parameter sweep with flexible iteration order over given parameter arrays.
 
@@ -99,6 +100,7 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
                                   len(f_mod_array) * len(f_dev_array))
     linewidths = np.zeros(num_parameter_combinations)
     sensitivities = np.zeros(num_parameter_combinations)
+    sensitivities_std = np.zeros(num_parameter_combinations)
     peak_positions = np.zeros(num_parameter_combinations)
     dip_positions = np.zeros(num_parameter_combinations)
     peak_uncertainties = np.zeros(num_parameter_combinations)
@@ -106,8 +108,16 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
     zero_crossing_frequencies = np.zeros(num_parameter_combinations)
     zero_crossing_slopes = np.zeros(num_parameter_combinations)
 
-    # Use itertools.product to iterate in the specified order
-    from itertools import product
+    # Store parameter values for each combination
+    OPX_LO_voltage_loop_array = np.zeros(num_parameter_combinations)
+    OPX_IF_voltage_loop_array = np.zeros(num_parameter_combinations)
+    f_mod_loop_array = np.zeros(num_parameter_combinations)
+    f_dev_loop_array = np.zeros(num_parameter_combinations)
+
+    if include_off_resonant_sensitivity:
+        sensitivities_off_resonant = np.zeros(num_parameter_combinations)
+        sensitivities_std_off_resonant = np.zeros(num_parameter_combinations)
+
 
     # product_params will be a tuple like (OPX_LO_val, OPX_IF_val, f_mod_val, f_dev_val) depending on loop_order
     product_params = list(product(*[param_dict[p] for p in loop_order]))
@@ -117,10 +127,10 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
         # We need to extract each parameter accordingly:
         param_values = dict(zip(loop_order, combination))
         previous_param_values = dict(zip(loop_order, product_params[idx - 1]))
-        OPX_LO_val = param_values["OPX_LO_voltage"]
-        OPX_IF_val = param_values["OPX_IF_voltage"]
-        f_mod_val = param_values["f_mod"]
-        f_dev_val = param_values["f_dev"]
+        OPX_LO_val =  OPX_LO_voltage_loop_array[idx] = param_values["OPX_LO_voltage"]
+        OPX_IF_val = OPX_IF_voltage_loop_array[idx] = param_values["OPX_IF_voltage"]
+        f_mod_val = f_mod_loop_array[idx] = param_values["f_mod"]
+        f_dev_val = f_dev_loop_array[idx] = param_values["f_dev"]
 
         try:
             print(f"Starting Measurement {idx + 1}/{num_parameter_combinations}")
@@ -141,8 +151,9 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
             fm.execute_FM()
             # if OPX_LO_val or OPX_IF_val was changed, wait 60 s - as changing MW power leads to heating
             if previous_param_values["OPX_LO_voltage"] != OPX_LO_val or previous_param_values["OPX_IF_voltage"] != OPX_IF_val:
-                time.sleep(60)
-
+                time.sleep(90)
+                print("OPX_LO_V ", previous_param_values["OPX_LO_voltage"], " --> ", OPX_LO_val)
+                print("OPX_IF_V ", previous_param_values["OPX_IF_voltage"], " --> ", OPX_IF_val)
 
             # 2) Hyperfine ODMR
             frequencies, odmr_voltages = odmr_remote.take_odmr_scan(filename_prefix + "_ODMR", single_odmr_run_time,
@@ -154,7 +165,7 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
             odmr_df.to_csv(filename_prefix + "_ODMR.csv", sep="\t")
 
             # 3) Fit hyperfine
-            fit_result = fit_hyperfine(frequencies, odmr_voltages, min_feature_amplitude=min_fit_amplitude,
+            fit_result = fit_hyperfine(frequencies, odmr_voltages, feature_prominence=min_fit_amplitude,
                                        n_most_prominent_peaks=n_most_prominent_peaks, plot_result=False,
                                        save_result_plot=True,
                                        min_feature_height=min_feature_height, filename=filename_prefix)
@@ -173,6 +184,21 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
                                                              save_metadata=True,
                                                              timeout=60)
 
+            odmr_remote.toggle_cw_output(False)
+
+            # 5.5) Take off-resonant sensitivity measurement
+            if include_off_resonant_sensitivity:
+                off_resonant_cw_frequency = cw_frequency + 15e6
+                odmr_remote.set_cw_parameters(frequency=float(off_resonant_cw_frequency), power=13)
+                odmr_remote.toggle_cw_output(True)
+
+                sensitivity_result_off_resonant = sensitivity.run_measurement(filename_prefix=filename_prefix + "_cw_time_trace_off_resonant",
+                                                                             n_time_traces=n_time_traces,
+                                                                             plot_data=False,
+                                                                             save_raw_data=False,
+                                                                             save_metadata=True,
+                                                                             timeout=60)
+
             # 6) Reset CW
             odmr_remote.toggle_cw_output(False)
 
@@ -184,6 +210,7 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
             dip_uncertainties[idx] = fit_result["dip_uncertainties [Hz]"][which_zc]
             zero_crossing_frequencies[idx] = fit_result["zero_crossing_frequencies [Hz]"][which_zc]
             zero_crossing_slopes[idx] = fit_result["zero_crossing_slopes [V/Hz]"][which_zc]
+
 
             # 8) Sensitivity analysis
             times = sensitivity_result["times [s]"]
@@ -205,6 +232,34 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
             plot_allan_deviation(tau_values, adev_values, save_fig=True, filename_prefix=filename_prefix)
 
             sensitivities[idx] = asd_result["sensitivity"]
+            sensitivities_std[idx] = asd_result["sensitivity_std"]
+
+
+            if include_off_resonant_sensitivity:
+                times = sensitivity_result_off_resonant["times [s]"]
+                demod_x_values = sensitivity_result_off_resonant["x_value [V]"]
+                scaling = sensitivity_result_off_resonant["metadata"]["aux_0_scaling"]
+                sampling_rate = sensitivity_result_off_resonant["metadata"]["sampling_rate [Hz]"]
+                duration = sensitivity_result_off_resonant["metadata"]["duration [s]"]
+                f_3db = sensitivity_result_off_resonant["metadata"]["filter_3db_freq [Hz]"]
+
+                B_noise_time_trace = magnetic_field_from_voltages(demod_x_values,
+                                                                  zero_crossing_slopes[idx],
+                                                                  scaling_factor=scaling)
+                plot_magnetic_field_time_traces(B_noise_time_trace, times, sampling_rate, duration, save_fig=True,
+                                                filename_prefix=filename_prefix + "_off_resonant")
+
+                asd_result = plot_asds(B_noise_time_trace, sampling_rate, duration, f_3db, filename_prefix=filename_prefix + "_off_resonant",
+                                       save_data=True, save_fig=True)
+
+                tau_values, adev_values = allan_deviation(B_noise_time_trace, sampling_rate)
+                plot_allan_deviation(tau_values, adev_values, save_fig=True, filename_prefix=filename_prefix + "_off_resonant")
+
+                sensitivities_off_resonant[idx] = asd_result["sensitivity"]
+                sensitivities_std_off_resonant[idx] = asd_result["sensitivity_std"]
+
+
+
 
         except Exception as e:
             traceback.print_exc()
@@ -213,10 +268,10 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
     # Save fit results to CSV
     # Build a DataFrame from results
     result_data = {
-        "OPX_LO_voltage [V]": [],
-        "OPX_IF_voltage [V]": [],
-        "f_mod [Hz]": [],
-        "f_dev [Hz]": [],
+        "OPX_LO_voltage [V]": OPX_LO_voltage_loop_array,
+        "OPX_IF_voltage [V]": OPX_IF_voltage_loop_array,
+        "f_mod [Hz]": f_mod_loop_array,
+        "f_dev [Hz]": f_dev_loop_array,
         "linewidths [Hz]": linewidths,
         "peak_positions [Hz]": peak_positions,
         "dip_positions [Hz]": dip_positions,
@@ -224,33 +279,15 @@ def parameter_sweep(OPX_LO_voltage_array=np.array([0.1]), OPX_IF_voltage_array=n
         "dip_uncertainties [Hz]": dip_uncertainties,
         "zero_crossing_frequencies [Hz]": zero_crossing_frequencies,
         "zero_crossing_slopes [V/Hz]": zero_crossing_slopes,
-        "sensitivities [nT/root(Hz)]": sensitivities
+        "sensitivities [nT/root(Hz)]": sensitivities,
+        "sensitivities_std [nT/root(Hz)]": sensitivities_std
     }
 
-    # Fill in parameter columns in the order they were generated
-    # We know the order of generation from product_params
-    # product_params were generated with `loop_order`
-    # Let's reconstruct them into a DataFrame
-    for param_name in loop_order:
-        param_values_list = [combination[loop_order.index(param_name)] for combination in product_params]
-        result_data[f"{param_name} [unit]"] = param_values_list
+    if include_off_resonant_sensitivity:
+        result_data["sensitivities_off_resonant [nT/root(Hz)]"] = sensitivities_off_resonant
+        result_data["sensitivities_std_off_resonant [nT/root(Hz)]"] = sensitivities_std_off_resonant
 
-    # Remove old parameter columns that were pre-named
-    # We'll rely on the newly created columns from the actual param values
-    for old_param in ["OPX_LO_voltage [V]", "OPX_IF_voltage [V]", "f_mod [Hz]", "f_dev [Hz]"]:
-        if old_param in result_data:
-            del result_data[old_param]
-
-    # The arrays have been added in loop_order with generic "[unit]" placeholders above
-    # Let's rename them properly:
-    rename_map = {
-        "OPX_LO_voltage [unit]": "OPX_LO_voltage [V]",
-        "OPX_IF_voltage [unit]": "OPX_IF_voltage [V]",
-        "f_mod [unit]": "f_mod [Hz]",
-        "f_dev [unit]": "f_dev [Hz]"
-    }
-    result_df = pd.DataFrame(result_data).rename(columns=rename_map)
-
+    result_df = pd.DataFrame(result_data)
     result_df.to_csv(folder_name + "fit_results.csv", sep="\t", index=False)
 
     return folder_name
@@ -262,22 +299,29 @@ if __name__ == "__main__":
     # First iterate over OPX_IF_voltage, then f_dev, then f_mod, then OPX_LO_voltage
     custom_loop_order = ["OPX_IF_voltage", "f_dev", "f_mod", "OPX_LO_voltage"]
 
-    for odmr_range in [[2.784e9, 2.803e9]]:
+    for odmr_range in [[2.808e9, 2.826e9]]:
         start_time = time.time()
 
         OPX_LO_voltage_array = np.linspace(0.4, 0.4, 1)
-        OPX_IF_voltage_array = np.linspace(0.02, 0.33, 5)
-        f_mod_array = np.array([6.3e3])
-        f_dev_array = np.linspace(400e3, 405e3, 2)
+        OPX_IF_voltage_array = np.linspace(0.05, 0.1, 3)
+        f_mod_array = np.linspace(6.66e3, 10e3, 1)
+        f_dev_array = np.linspace(450e3, 600e3, 2)
+
+        # OPX_LO_voltage_array = np.linspace(0.4, 0.4, 1)
+        # OPX_IF_voltage_array = np.linspace(0.05, 0.2, 1)
+        # f_mod_array = np.linspace(5e3, 10e3, 1)
+        # f_dev_array = np.linspace(400e3, 700e3, 1)
+
+        include_off_resonant_sensitivity = False
 
         n_time_traces = 16
-        single_odmr_runtime = 30
+        single_odmr_runtime = 60
         data_rate = 1000  # Hz
         odmr_frequency_points = 1000
         which_zc = 2
         n_most_prominent_peaks = 5
-        min_fit_amplitude = 0.001
-        laser_power = 600
+        min_fit_amplitude = 0.005
+        laser_power = 0
 
         folder_name = parameter_sweep(OPX_LO_voltage_array=OPX_LO_voltage_array,
                                       OPX_IF_voltage_array=OPX_IF_voltage_array,
@@ -291,7 +335,8 @@ if __name__ == "__main__":
                                       n_time_traces=n_time_traces,
                                       data_rate=data_rate,
                                       odmr_frequency_points=odmr_frequency_points,
-                                      loop_order=custom_loop_order)
+                                      loop_order=custom_loop_order,
+                                      include_off_resonant_sensitivity=include_off_resonant_sensitivity)
 
         metadata = {"laser_power_mW": laser_power, "n_time_traces": n_time_traces,
                     "which_zc": which_zc, "single_odmr_runtime": single_odmr_runtime}

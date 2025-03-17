@@ -12,7 +12,7 @@ from scipy.optimize import curve_fit
 from scipy.integrate import quad
 import matplotlib
 
-from my_software.tools.fitting import fit_hyperfine, evaluate_hyperfine
+from my_software.tools.fitting import fit_hyperfine
 
 matplotlib.use("Qt5Agg")
 
