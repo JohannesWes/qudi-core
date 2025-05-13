@@ -36,7 +36,6 @@ def smooth(y: np.ndarray, box_pts: int) -> np.ndarray:
 
     Returns:
         np.ndarray: Smoothed array with the same shape as y (using 'same' mode).
-                    Note: 'same' mode introduces edge effects.
     """
     if box_pts <= 1:  # No smoothing needed if window is 1 or less
         return y
@@ -46,16 +45,8 @@ def smooth(y: np.ndarray, box_pts: int) -> np.ndarray:
         return y
 
     box = np.ones(box_pts) / box_pts
-    # Use 'reflect' mode for boundary handling to reduce edge artifacts compared to zero-padding in 'same'
+    # Use 'same' mode which handles boundaries (e.g., zero-padding) and guarantees output size.
     y_smooth = np.convolve(y, box, mode='same')
-    # Correct edge effects by recalculating boundaries more carefully
-    # (This is a simple approach; more sophisticated methods exist)
-    half_box = box_pts // 2
-    y_smooth[:half_box] = np.convolve(y[:box_pts - 1], box, mode='valid')[:half_box]
-    y_smooth[-half_box:] = np.convolve(y[-(box_pts - 1):], box, mode='valid')[-half_box:]
-
-    # Alternative (simpler, uses default edge handling of 'same'):
-    # y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
 
 
@@ -154,7 +145,7 @@ def fit_hyperfine(
 
     if feature_distance_in_Hz <= 0 or zero_crossings_fit_range_hz <= 0 or feature_fit_range_hz <= 0 or smooth_window_hz <= 0:
         raise ValueError(
-            "Frequency ranges/distances (feature_distance_in_Hz, zero_crossings_fit_range_hz, feature_fit_range_hz, smooth_window_hz) must be positive.")
+            "Frequency ranges/distances (feature_distance_in_Hz, zero_crossings_fit_range, feature_fit_range, smooth_window_hz) must be positive.")
 
     n_points = len(frequency_array)
     frequency_spacing = (frequency_array[-1] - frequency_array[0]) / (n_points - 1)  # More robust calculation
@@ -455,15 +446,35 @@ def fit_hyperfine(
         ax_result.scatter(frequency_array[dips_indices] / 1e6, smoothed_voltage_array[dips_indices],
                           marker='v', color='blue', s=50, label="Initial Dips (smoothed)", zorder=4)
 
-        # Plot fitted peak/dip positions
-        ax_result.scatter(fit_peak_positions / 1e6,
-                          parabola(fit_peak_positions, fit_peak_positions, -1, fit_peak_positions),  # Placeholder Y
-                          marker='x', color='darkred', s=70, label="Fitted Peaks", zorder=5,
-                          transform=ax_result.get_xaxis_transform())  # Hack to plot markers without needing Y data
-        ax_result.scatter(fit_dip_positions / 1e6, parabola(fit_dip_positions, fit_dip_positions, 1, fit_dip_positions),
-                          # Placeholder Y
-                          marker='x', color='darkblue', s=70, label="Fitted Dips", zorder=5,
-                          transform=ax_result.get_xaxis_transform())  # Hack to plot markers without needing Y data
+        # --- Plot fitted peak/dip positions ---
+        # Filter out any NaN results from failed fits before interpolating
+        valid_peak_indices = ~np.isnan(fit_peak_positions)
+        valid_dip_indices = ~np.isnan(fit_dip_positions)
+
+        if np.any(valid_peak_indices):
+            fitted_peak_voltages = np.interp(
+                fit_peak_positions[valid_peak_indices], # x-values for interpolation
+                frequency_array,                       # original x-data
+                voltage_array                          # original y-data
+            )
+            ax_result.scatter(
+                fit_peak_positions[valid_peak_indices] / 1e6, # Fitted X (MHz)
+                fitted_peak_voltages,                        # Interpolated Y (Voltage)
+                marker='x', color='darkred', s=70, label="Fitted Peaks", zorder=5
+            )
+
+        if np.any(valid_dip_indices):
+            # Interpolate original voltage data at the fitted dip frequencies
+            fitted_dip_voltages = np.interp(
+                fit_dip_positions[valid_dip_indices], # x-values for interpolation
+                frequency_array,                     # original x-data
+                voltage_array                        # original y-data
+            )
+            ax_result.scatter(
+                fit_dip_positions[valid_dip_indices] / 1e6, # Fitted X (MHz)
+                fitted_dip_voltages,                       # Interpolated Y (Voltage)
+                marker='x', color='darkblue', s=70, label="Fitted Dips", zorder=5
+            )
 
         # Plot fitted lines at zero crossings
         for i in range(n_features_found):
