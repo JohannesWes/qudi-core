@@ -88,11 +88,13 @@ def plot_voltage_time_traces(samples_x, times, sample_rate, duration, save_fig=F
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, save_data=True, filename_prefix=None):
+def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, save_data=True, filename_prefix=None, xscale="log", yscale="log"):
     fig, ax = plt.subplots()
 
     welch_x_hanning = welch(samples_x_B_field, fs=sample_rate, nperseg=sample_rate, noverlap=0, window='hann')
     welch_x_boxcar = welch(samples_x_B_field, fs=sample_rate, nperseg=sample_rate, noverlap=0, window="boxcar")
+    welch_x_blackmanharris = welch(samples_x_B_field, fs=sample_rate, nperseg=sample_rate, noverlap=0,
+                                   window='blackmanharris')
     frequencies = welch_x_hanning[0]
 
     # sensitivity via the standard deviation of the time series, not filtered
@@ -100,16 +102,17 @@ def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, 
         [np.std(samples_x_B_field[i * int(sample_rate):(i + 1) * int(sample_rate)]) for i in
          range(int(duration))]) / np.sqrt(2 * f_ENBW)
 
-    asd_hanning, asd_boxcar = np.sqrt(welch_x_hanning[1]), np.sqrt(welch_x_boxcar[1])
-    hanning_noise_floor, bandwidth = calculate_asd_noise_floor(frequencies , asd_hanning, 10, f_ENBW, filter_frequencies=[100, 150, 200, 250, 300, 350, 400, 450],
-                                                               filter_intervals=[[48,52]])
+    asd_hanning, asd_boxcar, asd_blackmanharris = np.sqrt(welch_x_hanning[1]), np.sqrt(welch_x_boxcar[1]), np.sqrt(welch_x_blackmanharris[1])
+    hanning_noise_floor, bandwidth = calculate_asd_noise_floor(frequencies , asd_hanning, 90, f_ENBW/3, filter_frequencies=[99, 100, 101, 149, 150, 151, 199, 200, 201, 249, 250, 251, 300, 350, 400, 450],
+                                                               filter_intervals=None)
 
 
-    ax.plot(welch_x_hanning[0], asd_hanning, label="Hann window", alpha=0.7, linestyle="--", color="dimgray")
-    ax.plot(welch_x_boxcar[0], asd_boxcar, label="Boxcar window", alpha=0.7, linestyle="-.")
+    ax.plot(welch_x_hanning[0][1:], asd_hanning[1:], label="Hann window", alpha=0.7, linestyle="--", color="dimgray")
+    # ax.plot(welch_x_boxcar[0][1:], asd_boxcar[1:], label="Boxcar window", alpha=0.7, linestyle="-.")
+    ax.plot(frequencies[1:], asd_blackmanharris[1:], label="Blackman-Harris window", alpha=0.7, linestyle=":", color="orange")
     ax.axhline(hanning_noise_floor, color='r', linestyle='--')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
+    ax.set_xscale(xscale)
+    ax.set_yscale(yscale)
     ax.set_title(f"Amplitude spectral density of the x-component of the magnetic field\n"
                  f"Sensitivity: {hanning_noise_floor:.2f} nT/sqrt(Hz)")
     ax.set_xlabel("Frequency [Hz]")
@@ -123,11 +126,11 @@ def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, 
         fig.savefig(filename_prefix + "_ASD.pdf")
     if save_data and filename_prefix is not None:
         asd_df = pd.DataFrame(
-            data={"frequencies": welch_x_hanning[0], "asd_hanning": asd_hanning, "asd_boxcar": asd_boxcar})
+            data={"frequencies": welch_x_hanning[0], "asd_hanning": asd_hanning, "asd_boxcar": asd_boxcar, "asd_blackmanharris": asd_blackmanharris})
         asd_df.to_csv(filename_prefix + "_ASD.csv", sep="\t")
     plt.close(fig)
 
-    return {"frequencies": welch_x_hanning[0], "asd_hanning": asd_hanning, "asd_boxcar": asd_boxcar,
+    return {"frequencies": welch_x_hanning[0], "asd_hanning": asd_hanning, "asd_boxcar": asd_boxcar, "asd_blackmanharris": asd_blackmanharris,
             "sensitivity": hanning_noise_floor, "sensitivity_std": sensitivity_std}
 
 
@@ -250,7 +253,7 @@ def allan_deviation(x, sampling_rate, m_values=None, m_mode='linear'):
 
 
 
-def plot_allan_deviation(tau_values, allan_dev, save_fig=False, save_data=True, filename_prefix=None):
+def plot_allan_deviation(tau_values, allan_dev, save_fig=False, save_data=False, filename_prefix=None):
     fig, ax = plt.subplots()
 
     ax.plot(tau_values, allan_dev, label="Allan Deviation", alpha=0.7, linestyle="-", color="black")
