@@ -172,7 +172,4 @@ if __name__ == '__main__':
     odmr_remote = OdmrRemoteControl()
     odmr_remote.set_odmr_parameters()
 
-    folder_name = "folder"
-    file_name = folder_name + "/" + "filename"
-
     # odmr_remote.start_odmr_scan()

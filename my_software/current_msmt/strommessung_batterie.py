@@ -1,8 +1,5 @@
 import numpy as np
-import importlib.util
-import sys
 from datetime import datetime
-import time
 import matplotlib
 import pandas as pd
 import os
@@ -85,9 +82,9 @@ def fit_avg_position_lock_in_hyperfine(odmr_ranges, num_current_measurements, od
         for odmr_range_index, odmr_range in enumerate(odmr_ranges):
             peak_data, dip_data = fit_hyperfine(odmr_frequencies_array[odmr_range_index],
                                                 odmr_voltages_array[odmr_range_index][measurement_index],
-                                                min_feature_amplitude=min_feature_amplitude,
+                                                feature_prominence=min_feature_amplitude,
                                                 min_feature_height=min_feature_height,
-                                                feature_fit_range=feature_fit_range, plot_fitting=testing_flag)
+                                                feature_fit_range_hz=feature_fit_range, plot_fitting=testing_flag)
 
             peak_positions, dip_positions = np.array(peak_data)[:, 0], np.array(dip_data)[:, 0]
             peak_uncertainties, dip_uncertainties = np.array(peak_data)[:, 1], np.array(dip_data)[:, 1]

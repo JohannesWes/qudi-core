@@ -34,19 +34,10 @@ def log(func):
 # from RsInstrument import *
 
 class NGP_instance():
-    def __init__(self):
-        self.small_dist = 0.054
-        self.small_N = 400
-        self.small_R = 0.022
-        self.medium_dist = 0.078
-        self.medium_N = 450
-        self.medium_R = 0.059
-        self.large_dist = 0.09
-        self.large_N = 600
-        self.large_R = 0.1045
+    def __init__(self, usb_address=None):
 
         try:
-            self.driver = RsNgx('USB0::0x0AAD::0x0197::5601.4007k03-101169::INSTR', reset=True)
+            self.driver = RsNgx(usb_address, reset=True)
         except:
             logging.error(f"Could not connect to the NGP.")
             raise
@@ -64,6 +55,11 @@ class NGP_instance():
 
         self.driver.output.general.set_state(False)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def set_voltage(self, chn, vlt):
         try:
@@ -168,38 +164,12 @@ class NGP_instance():
         self.output_off()
         self.driver.close()
 
-    # def _chn_to_axis(self, chn):
-    #     if chn == 1:
-    #         return 'X'
-    #     elif chn == 2:
-    #         return 'Y'
-    #     elif chn == 3:
-    #         return 'Z'
-    #     else:
-    #         return 'NO CHANNEL DEFINED'
-    #
-    # def unit_vec(self, dir, mag):
-    #     B_dir = mag * dir / np.linalg.norm(dir)
-    #     return np.array([np.dot(B_dir, np.array([1, 0, 0])), np.dot(B_dir, np.array([0, 1, 0])),
-    #                      np.dot(B_dir, np.array([0, 0, 1]))])
-    #
-    # def field_to_current(self, direction, magnitude):
-    #     """
-    #     Calculate required current per coil for the provided magnetic field vector (in Gauss).
-    #     """
-    #     vec = self.unit_vec(direction, magnitude)
-    #     I_small = ((self.small_R ** 2 + (self.small_dist / 2) ** 2) ** (3 / 2) * vec[0] * 1e-4) / (
-    #             mu_0 * self.small_R ** 2 * self.small_N)
-    #     I_large = ((self.large_R ** 2 + (self.large_dist / 2) ** 2) ** (3 / 2) * vec[1] * 1e-4) / (
-    #             mu_0 * self.large_R ** 2 * self.large_N)
-    #     I_medium = ((self.medium_R ** 2 + (self.medium_dist / 2) ** 2) ** (3 / 2) * vec[2] * 1e-4) / (
-    #             mu_0 * self.medium_R ** 2 * self.medium_N)
-    #     return I_small, I_large, I_medium
-    #
-    # def magnetic_field_vector(self, direction, magnitude):
-    #     I_small, I_large, I_medium = self.field_to_current(direction, magnitude)
-    #     self.set_channel(1, 6, I_small) if I_small > 0 else self.disable_channel(1)
-    #     self.set_channel(2, 16, I_large) if  I_large> 0 else self.disable_channel(2)
-    #     self.set_channel(3, 30, I_medium) if I_medium > 0 else self.disable_channel(3)
-    #     return (self.read_channel_state(1), self.read_channel_state(2), self.read_channel_state(3))
-
+    def _chn_to_axis(self, chn):
+        if chn == 1:
+            return 'X'
+        elif chn == 2:
+            return 'Y'
+        elif chn == 3:
+            return 'Z'
+        else:
+            return 'NO CHANNEL DEFINED'
