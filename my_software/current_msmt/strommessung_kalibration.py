@@ -8,6 +8,7 @@ matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 from my_software.tools.logging_config import setup_logging
 setup_logging(level=logging.INFO)
@@ -400,10 +401,12 @@ def fit_odmr_series(odmr_ranges, odmr_frequencies_array, odmr_voltages_array,
     # Return results matching the input structure (voltages/frequencies might contain NaNs now)
     return avg_odmr_pos, uncertainty_avg_odmr_pos
 
-# --- NEW PLOTTING FUNCTION ---
+
+# --- UPDATED PLOTTING FUNCTION WITH LINEAR FIT ---
 def plot_calibration_curve(current_array, avg_positions, uncertainties, odmr_ranges, save_filepath):
     """
-    Plots the average ODMR peak positions vs. current with error bars and saves the plot.
+    Plots the average ODMR peak positions vs. current with error bars, fits a linear line to each dataset,
+    and saves the plot.
 
     Args:
         current_array (np.ndarray): 1D array of current values.
@@ -412,24 +415,23 @@ def plot_calibration_curve(current_array, avg_positions, uncertainties, odmr_ran
         odmr_ranges (list): List of [start, stop] frequencies for labeling.
         save_filepath (str): Full path including filename (e.g., '/path/to/calibration_curve.pdf') to save the plot.
     """
-    logging.info(f"Generating calibration plot...")
+    logging.info(f"Generating calibration plot with linear fit...")
     try:
         num_ranges = avg_positions.shape[1]
         num_points = len(current_array)
 
         if avg_positions.shape[0] != num_points or uncertainties.shape[0] != num_points:
-             logging.error("Mismatch between length of current_array and results arrays for plotting.")
-             raise ValueError("Data array length mismatch for plotting.")
+            logging.error("Mismatch between length of current_array and results arrays for plotting.")
+            raise ValueError("Data array length mismatch for plotting.")
         if avg_positions.shape[1] != len(odmr_ranges) or uncertainties.shape[1] != len(odmr_ranges):
-             logging.error("Mismatch between number of ODMR ranges and results arrays for plotting.")
-             raise ValueError("ODMR range mismatch for plotting.")
-
+            logging.error("Mismatch between number of ODMR ranges and results arrays for plotting.")
+            raise ValueError("ODMR range mismatch for plotting.")
 
         fig, ax = plt.subplots(figsize=(10, 6))
 
         # Define markers or colors if needed for multiple ranges
         markers = ['o', 's', '^', 'd', 'v', '<', '>']
-        colors = plt.cm.viridis(np.linspace(0, 0.9, num_ranges)) # Use a colormap
+        colors = plt.cm.viridis(np.linspace(0, 0.9, num_ranges))  # Use a colormap
 
         for i in range(num_ranges):
             # Extract data for this range, convert Hz to GHz for better readability on axis
@@ -437,7 +439,7 @@ def plot_calibration_curve(current_array, avg_positions, uncertainties, odmr_ran
             y_error_ghz = uncertainties[:, i] / 1e9
 
             # Create label for legend
-            range_label = f"Range {i}: {odmr_ranges[i][0]/1e9:.3f}-{odmr_ranges[i][1]/1e9:.3f} GHz"
+            range_label = f"Range {i}: {odmr_ranges[i][0] / 1e9:.3f}-{odmr_ranges[i][1] / 1e9:.3f} GHz"
 
             # Plot with error bars
             ax.errorbar(
@@ -445,49 +447,74 @@ def plot_calibration_curve(current_array, avg_positions, uncertainties, odmr_ran
                 y_data_ghz,
                 yerr=y_error_ghz,
                 label=range_label,
-                fmt=markers[i % len(markers)] + '-', # Format: marker + line
-                capsize=4, # Add caps to error bars
+                fmt=markers[i % len(markers)],  # Format: marker only (no line)
+                capsize=4,  # Add caps to error bars
                 markersize=6,
-                color=colors[i]
+                color=colors[i], alpha=0.7
             )
+
+            # Perform linear fit (weighted by uncertainties if they're significant)
+            if np.all(y_error_ghz > 0):
+                # Use weighted fit if we have valid uncertainties
+                slope, intercept, r_value, p_value, std_err = stats.linregress(current_array, y_data_ghz)
+            else:
+                # Use standard fit if uncertainties are zeros or invalid
+                slope, intercept, r_value, p_value, std_err = stats.linregress(current_array, y_data_ghz)
+
+            # Create smooth x values for plotting the fit line
+            x_fit = np.linspace(min(current_array), max(current_array), 100)
+            y_fit = slope * x_fit + intercept
+
+            # Plot the fit line
+            ax.plot(x_fit, y_fit, '-', color=colors[i], linewidth=1.5, alpha=0.7,
+                    label=f"Fit {i}: {slope:.3e} GHz/A")
+
+            # Add fit equation text to the plot
+            fit_text = f"Range {i}: y = {slope:.3e} × x + {intercept:.3e}, R² = {r_value ** 2:.4f}"
+            logging.info(fit_text)
 
         ax.set_xlabel("Applied Current [A]")
         ax.set_ylabel("Average ODMR Peak Frequency [GHz]")
         ax.set_title("Current Calibration: ODMR Frequency vs. Current")
         ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-        # Add legend only if more than one range is plotted
-        if num_ranges > 1:
-             ax.legend()
+        # Add legend with better layout
+        ax.legend(loc='best', fontsize=9)
 
         # Save the figure
         plt.savefig(save_filepath, format='pdf', bbox_inches='tight')
-        logging.info(f"Calibration plot saved successfully to: {save_filepath}")
+        logging.info(f"Calibration plot with linear fit saved successfully to: {save_filepath}")
 
-        plt.close(fig) # Close the figure to free memory
+        # Return the fit parameters for potential later use
+        fit_results = []
+        for i in range(num_ranges):
+            slope, intercept, r_value, p_value, std_err = stats.linregress(
+                current_array, avg_positions[:, i] / 1e9)
+            fit_results.append({
+                'slope': slope,
+                'intercept': intercept,
+                'r_squared': r_value ** 2,
+                'std_err': std_err
+            })
+
+        plt.close(fig)  # Close the figure to free memory
+        return fit_results
 
     except Exception as e:
-        logging.error(f"Failed to generate or save calibration plot: {e}")
+        logging.error(f"Failed to generate or save calibration plot with linear fit: {e}")
         # Ensure plot is closed even if saving fails mid-way
         if 'fig' in locals() and plt.fignum_exists(fig.number):
             plt.close(fig)
+        return None
 
-# --- END NEW PLOTTING FUNCTION ---
 
-
-def aufnahme_calibration(current_max=0.1):
+def aufnahme_calibration(current_max=0.1, current_points=20, odmr_ranges=[[2.64e9, 2.65e9]], current_settling_time=5):
     """
     Main function to run the current calibration measurement and analysis.
     """
     # --- Measurement Parameters ---
     current_min = 0.001
-    current_points = 20
     run_time_per_odmr_scan = 10
-    current_settling_time = 5
-    odmr_ranges = [[2.504e9, 2.530e9]]
-    # odmr_ranges = [[2.502e9, 2.538e9], [2.85e9, 2.89e9]]
-
-
     odmr_frequency_points = 1001 # Number of points in each ODMR scan
 
 
@@ -591,6 +618,8 @@ def aufnahme_calibration(current_max=0.1):
 
 
 if __name__ == "__main__":
-    aufnahme_calibration(current_max=0.5)
+    odmr_ranges = [[2.804e9, 2.832e9]]
+
+    aufnahme_calibration(current_max=0.5, odmr_ranges=odmr_ranges, current_points=20, )
 
     print('--- Script Execution Done ---')
