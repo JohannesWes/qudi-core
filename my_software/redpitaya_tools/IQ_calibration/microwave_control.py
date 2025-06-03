@@ -1,5 +1,6 @@
 import pyvisa as visa
 import time
+import logging
 
 class Windfreak_MW_control:
     """
@@ -23,6 +24,7 @@ class Windfreak_MW_control:
         Args:
             com (str): The serial port address (e.g., 'COM3').
         """
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.serial_port = com
         self._conn = None  # Initialize the connection object
 
