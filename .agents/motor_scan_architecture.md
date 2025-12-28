@@ -9,6 +9,8 @@ The Motor XY Scan module provides motorized XY scanning functionality with synch
 
 This document describes the architecture, module interactions, data flow, and implementation details.
 
+**Last Updated:** December 2024
+
 ---
 
 ## Module Hierarchy
@@ -47,6 +49,8 @@ This document describes the architecture, module interactions, data flow, and im
 | GUI Module | `qudi-iqo-modules/src/qudi/gui/motor_scan/motor_scan_gui.py` | User interface |
 | Motor Interface | `qudi-iqo-modules/src/qudi/interface/motor_interface.py` | Hardware abstraction |
 | Motor Dummy | `qudi-iqo-modules/src/qudi/hardware/dummy/motor_dummy.py` | Simulated hardware |
+| Thorlabs KDC101 | `qudi-iqo-modules/src/qudi/hardware/motor/thorlabs_kdc101_kinesis.py` | Real Thorlabs MTS50-Z8 stages via KDC101 controllers |
+| Fit Functions | `my_software/tools/fitting.py` | ODMR hyperfine fitting (`fit_hyperfine`) |
 
 ---
 
@@ -59,10 +63,26 @@ global:
     startup_modules: [motor_scan_gui]
 
 hardware:
+    # For real Thorlabs hardware
     thorlabs_xy_stage:
-        module.Class: 'motor.aptmotor.APTMotor'
+        module.Class: 'motor.thorlabs_kdc101_kinesis.ThorlabsKDC101Kinesis'
         options:
-            # Hardware-specific options
+            axis_config:
+                x:
+                    serial: '27267130'  # X-axis KDC101 serial number
+                    pos_min: 0
+                    pos_max: 0.05  # 50mm in meters
+                y:
+                    serial: '27601623'  # Y-axis KDC101 serial number
+                    pos_min: 0
+                    pos_max: 0.05
+            default_velocity: 2.0e-3  # m/s
+            settle_time: 0.01         # seconds
+            auto_home: false          # Manual homing recommended
+
+    # OR for testing with dummy hardware
+    motor_dummy:
+        module.Class: 'dummy.motor_dummy.MotorDummy'
 
 logic:
     motor_scan_logic:
@@ -76,6 +96,8 @@ logic:
             position_poll_interval: 0.05
             odmr_fit_function: 'fit_hyperfine'
             save_thumbnails: True
+            save_odmr_fit_plots: True    # Save per-pixel hyperfine fit plots
+            home_before_scan: True       # Home stages before each scan
 
 gui:
     motor_scan_gui:
@@ -351,17 +373,61 @@ if self.module_state() == 'locked':
 
 ## Data Storage
 
-### File Format
+### File Organization
 
-Data is saved using `TextDataStorage` with automatic daily directories:
+Data is organized in scan-specific folders within daily directories:
 
 ```
-<data_root>/YYYY/MM/YYYYMMDD/<module_name>/
-    YYYYMMDD-HHMM-SS_<nametag>_motor_scan_STEP_ODMR_center_frequency.dat
-    YYYYMMDD-HHMM-SS_<nametag>_motor_scan_STEP_ODMR_center_frequency.pdf
-    YYYYMMDD-HHMM-SS_<nametag>_motor_scan_STEP_ODMR_linewidth.dat
-    ...
+<data_root>/YYYY/MM/YYYY-MM-DD/motor_scan_logic/
+    YYYYMMDD-HHMM-SS_<nametag>_motor_scan_STEP_ODMR/
+        ├── center_frequency.dat          # 2D center frequency data
+        ├── center_frequency.pdf          # Plot thumbnail
+        ├── linewidth.dat                 # 2D linewidth data  
+        ├── linewidth.pdf                 # Plot thumbnail
+        ├── fit_quality.dat               # Number of features found per pixel
+        ├── fit_quality.pdf               # Plot thumbnail
+        ├── odmr_fits/                    # Per-pixel hyperfine fit plots
+        │   ├── pixel_000_000_fit.png
+        │   ├── pixel_000_001_fit.png
+        │   └── ...
+        └── odmr_raw_per_pixel/           # Raw ODMR data per pixel
+            ├── pixel_000_000_odmr.dat
+            ├── pixel_000_001_odmr.dat
+            └── ...
 ```
+
+### Scan Folder Naming
+
+- **During scan**: Folder created at scan start with timestamp
+- **On save**: Folder renamed to include user nametag if provided
+- **Format**: `YYYYMMDD-HHMM-SS_<nametag>_motor_scan_<MODE>`
+
+### Per-Pixel ODMR Data (STEP_ODMR mode)
+
+Each pixel's ODMR scan is saved with:
+- Frequency array (Hz)
+- Signal data (V or counts)
+- Actual measured position
+- Grid indices (ix, iy)
+
+```
+# Pixel ODMR Data
+# Grid Index: (0, 0)
+# Actual Position: x=0.000mm, y=0.000mm
+# 
+# Frequency (Hz)    Signal (V)
+2.85e9              0.0012
+2.851e9             0.0011
+...
+```
+
+### ODMR Fit Plots
+
+When `save_odmr_fit_plots: True`, hyperfine fit plots are saved for each pixel showing:
+- Raw ODMR spectrum
+- Fitted hyperfine model
+- Extracted center frequency and linewidth
+- Fit quality indicator
 
 ### Metadata Format
 
@@ -379,6 +445,7 @@ Data is saved using `TextDataStorage` with automatic daily directories:
 # Total Points=400
 # Completed Points=400
 # Scan Duration (s)=1234.5
+# Home Before Scan=True
 # x axis min=0.0
 # x axis max=0.01
 # ...
@@ -451,6 +518,68 @@ class MotorInterface(Base):
         pass
 ```
 
+### ThorlabsKDC101Kinesis Implementation
+
+The `ThorlabsKDC101Kinesis` class provides support for Thorlabs MTS50-Z8 stages via KDC101 controllers using pylablib.
+
+**Extended Methods (beyond MotorInterface):**
+
+```python
+def move_abs_sync(self, param_dict, timeout=30.0, position_tolerance=50e-6):
+    """Move to position and wait with verification."""
+    pass
+
+def wait_for_idle(self, timeout=30.0) -> bool:
+    """Wait for all movement to complete."""
+    pass
+
+def is_moving(self) -> bool:
+    """Check if any axis is moving."""
+    pass
+
+@staticmethod
+def list_devices() -> List[Tuple[str, str]]:
+    """List all Thorlabs Kinesis devices."""
+    pass
+
+@staticmethod
+def find_kdc101_devices() -> List[Tuple[str, str]]:
+    """Find KDC101 controllers specifically."""
+    pass
+```
+
+**Configuration Example:**
+
+```yaml
+thorlabs_xy_stage:
+    module.Class: 'motor.thorlabs_kdc101_kinesis.ThorlabsKDC101Kinesis'
+    options:
+        axis_config:
+            x:
+                serial: '27267130'
+                pos_min: 0
+                pos_max: 0.05  # 50mm
+            y:
+                serial: '27601623'
+                pos_min: 0
+                pos_max: 0.05
+        default_velocity: 2.0e-3  # 2 mm/s
+        settle_time: 0.01         # 10 ms
+        auto_home: false
+```
+
+**Finding Device Serial Numbers:**
+
+```python
+from qudi.hardware.motor.thorlabs_kdc101_kinesis import ThorlabsKDC101Kinesis
+
+# List all Kinesis devices
+print(ThorlabsKDC101Kinesis.list_devices())
+
+# Find KDC101 controllers
+print(ThorlabsKDC101Kinesis.find_kdc101_devices())
+```
+
 ### Constraints Format
 
 ```python
@@ -460,11 +589,14 @@ constraints = {
         'unit': 'm',
         'pos_min': 0.0,
         'pos_max': 0.050,  # 50mm travel
-        'pos_step': 0.000001,  # 1µm resolution
-        'vel_min': 0.0001,
-        'vel_max': 0.010,
-        'vel_step': 0.0001,
-        'ramp': ['Linear', 'Sinus'],
+        'pos_step': 0.8e-6,  # 0.8 µm resolution
+        'vel_min': 0.0,
+        'vel_max': 2.4e-3,  # 2.4 mm/s max
+        'vel_step': 1e-6,
+        'acc_min': 0.0,
+        'acc_max': 4.5e-3,  # 4.5 mm/s²
+        'acc_step': 1e-6,
+        'ramp': ['Trapez'],
     },
     'y': {...}
 }
@@ -524,6 +656,9 @@ For display with `imshow()`, data is transposed: `data.T`
 | `odmr_fit_function` | str | 'fit_hyperfine' | Name of fit function to use |
 | `require_fit_function` | bool | True | Warn if fit function unavailable |
 | `save_thumbnails` | bool | True | Save PDF plots with data |
+| `save_odmr_fit_plots` | bool | True | Save per-pixel hyperfine fit plots |
+| `home_before_scan` | bool | True | Home stages before each scan |
+| `position_tolerance` | float | 100e-6 | Position verification tolerance (m) |
 
 ### StatusVariables (Persistent State)
 
@@ -558,6 +693,138 @@ def on_activate(self):
 - If fit function unavailable: Fall back to finding minimum in ODMR spectrum
 - If time_series already running: Subscribe to existing data stream
 - If motor reports error: Log and continue to next point
+
+---
+
+## Stage Positioning & Homing
+
+### Overview
+
+Accurate stage positioning is critical for XY scanning. The system uses Thorlabs MTS50-Z8 stages with KDC101 controllers, which have specific positioning characteristics that must be handled correctly.
+
+### Hardware Specifications (MTS50-Z8)
+
+| Specification | Value | Notes |
+|---------------|-------|-------|
+| Travel Range | 50 mm | Configurable via `pos_min`/`pos_max` |
+| Encoder Resolution | 29 nm | 34,555 counts/mm |
+| Min Repeatable Increment | 0.8 µm | Practical positioning limit |
+| Home Position Accuracy | ±4 µm | After proper homing |
+| Backlash | <6 µm | Consider for bidirectional scans |
+| Max Velocity | 2.4 mm/s | Default: 2.0 mm/s (safe) |
+
+### Homing Implementation
+
+**Why Homing Matters:**
+- Establishes absolute position reference (encoder zero)
+- Eliminates accumulated positioning errors
+- Required before first scan for accurate positioning
+
+**Homing Sequence:**
+1. Stage moves to negative limit switch (reverse direction)
+2. Stage contacts limit switch and stops
+3. Stage moves forward by configured offset (~1 mm)
+4. Encoder zero reference is established at this position
+5. Reported position will be near 0 (typically ±1 µm)
+
+**Implementation Details (ThorlabsKDC101Kinesis):**
+
+```python
+# Homing uses force=True to override "already homed" state
+stage.home(sync=False, force=True)
+
+# Poll until complete with timeout
+while time.time() - start_time < timeout:
+    if not stage.is_moving():
+        break
+    time.sleep(0.5)
+```
+
+**Known Issues with pylablib:**
+- The `stage.home(sync=True)` may return immediately without actually homing if the device reports "already homed"
+- Solution: Use `force=True` parameter to ensure homing occurs
+- After homing, position may show as slightly negative (~-1mm) due to home offset - this is normal
+
+### Homing in GUI
+
+The GUI provides a "Home Stages" button that:
+1. Shows confirmation dialog (homing takes 30-60s per axis)
+2. Is disabled during active scans
+3. Calls `motor_scan_logic.home_stages()`
+4. Executes homing sequentially on X then Y axis
+
+### Pre-Scan Homing
+
+Configurable via `home_before_scan` option (default: `True`):
+- When enabled, stages are homed before each scan starts
+- Ensures consistent absolute positioning across scans
+- Adds ~30-60 seconds to scan initialization
+
+### Position Verification During Scans
+
+For STEP_ODMR mode, each measurement point includes position verification:
+
+```python
+# After move_abs() completes, verify position
+actual_pos = motor.get_pos()
+for axis, target in target_position.items():
+    error = abs(actual_pos[axis] - target)
+    if error > position_tolerance:  # Default: 100 µm
+        self.log.warning(f"Position error: target={target}, actual={actual_pos[axis]}")
+```
+
+**Position Data Stored Per Point:**
+- `actual_position`: Dict of measured positions after move
+- Logged at info level: `"Point N at x=X.XXmm, y=Y.YYmm"`
+
+### Synchronous vs Asynchronous Moves
+
+**Synchronous Moves (move_abs_sync):**
+- Used for discrete positioning in STEP_ODMR mode
+- Blocks until movement complete and position verified
+- Includes configurable position tolerance (default 50 µm)
+
+```python
+motor.move_abs_sync(
+    param_dict={'x': 0.025, 'y': 0.010},
+    timeout=30.0,
+    position_tolerance=50e-6
+)
+```
+
+**Asynchronous Moves (move_abs):**
+- Used for continuous scanning modes
+- Returns immediately after command sent
+- Position verification done separately via polling
+
+### Common Positioning Problems & Solutions
+
+| Problem | Symptom | Solution |
+|---------|---------|----------|
+| Stages not homing | Position unchanged after home | Use `force=True` in home command |
+| Position shows ~-1mm after homing | Normal | This is the home offset from limit switch |
+| First point position error | Large error on point 0 | Ensure proper homing before scan |
+| Position drift during long scans | Gradual offset increase | Re-home between scans; check stage temperature |
+| Inconsistent positioning | Random errors | Check USB connection stability; increase settle time |
+
+### Settle Time Configuration
+
+After each move, a settle time allows mechanical vibrations to decay:
+
+```yaml
+options:
+    settle_time: 0.01  # 10 ms default, increase for sensitive measurements
+```
+
+For high-precision measurements, consider increasing to 50-100 ms.
+
+### Backlash Compensation
+
+The MTS50-Z8 has <6 µm backlash. For SNAKE pattern scans (alternating direction), this can cause systematic positioning errors. Mitigation strategies:
+
+1. **Use LINE_BY_LINE pattern**: Always approach from same direction
+2. **Increase position tolerance**: Accept small errors
+3. **Add backlash compensation**: (Not currently implemented)
 
 ---
 
@@ -602,14 +869,40 @@ hardware:
         module.Class: 'dummy.motor_dummy.MotorDummy'
 ```
 
+### Available Config Files
+
+| Config File | Description |
+|-------------|-------------|
+| `motor_scan_dummy.cfg` | Full simulation - dummy stages and dummy sensor |
+| `motor_scan_real_data.cfg` | Simulated stages with real sensor data |
+| `motor_scan_real_hardware.cfg` | Real Thorlabs stages and real sensor |
+
 ### Key Test Scenarios
 
 1. **Basic STEP_ODMR scan**: Verify ODMR triggering and data extraction
 2. **CONTINUOUS_STREAM scan**: Verify data binning and buffering
 3. **Pause/Resume**: Verify state machine transitions
 4. **Stop during scan**: Verify clean shutdown
-5. **Save with nametag**: Verify file naming
+5. **Save with nametag**: Verify file/folder naming
 6. **Pattern variations**: Verify index mapping for all patterns
+7. **Homing**: Verify stages reach home position (position ~0 after homing)
+8. **Position verification**: Check actual vs target positions in logs
+9. **ODMR fit plots**: Verify fit plots generated in odmr_fits folder
+
+### Device Discovery Script
+
+```python
+# Run to find connected Thorlabs devices
+from pylablib.devices import Thorlabs
+
+print("Kinesis devices:")
+print(Thorlabs.list_kinesis_devices())
+
+# Alternative via FTDI
+print("\nFTDI devices:")
+from pylablib.core.utils import general as general_utils
+print(general_utils.backend.find_devices())
+```
 
 ---
 
@@ -630,3 +923,66 @@ hardware:
 | 2024-12 | - | Added scan pattern support (SNAKE_X, LINE_BY_LINE_X, etc.) |
 | 2024-12 | - | Added PDF thumbnail saving |
 | 2024-12 | - | Added save nametag support in GUI |
+| 2024-12 | - | Added ThorlabsKDC101Kinesis hardware driver using pylablib |
+| 2024-12 | - | Added per-scan folder organization for data storage |
+| 2024-12 | - | Added raw ODMR data saving per pixel |
+| 2024-12 | - | Added ODMR hyperfine fit plot saving per pixel |
+| 2024-12 | - | Added Home Stages button in GUI with confirmation dialog |
+| 2024-12 | - | Added home_before_scan ConfigOption |
+| 2024-12 | - | Fixed homing to use force=True for reliable operation |
+| 2024-12 | - | Added position verification and logging at each scan point |
+| 2024-12 | - | Added move_abs_sync with position tolerance checking |
+| 2024-12 | - | Fixed linewidth calculation to be average (not sum) |
+| 2024-12 | - | Fixed fit_hyperfine import path |
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**"Could not load fit function: No module named 'my_software'"**
+- The fit function is loaded from `my_software.tools.fitting`
+- Ensure the `my_software` package is in PYTHONPATH or installed
+- Check that `fit_hyperfine` function exists in `fitting.py`
+
+**Stages not homing / homing completes instantly**
+- Symptom: Position unchanged after homing, completes in <1 second
+- Cause: pylablib's `home()` returns immediately if device reports "already homed"
+- Solution: Use `force=True` parameter in home command
+- Fixed in current ThorlabsKDC101Kinesis implementation
+
+**Position shows ~-1mm after homing**
+- This is normal! The stage homes to limit switch then moves by offset
+- The home offset is configured in the stage firmware (~1mm)
+- Position 0 is the reference point, actual physical home is at ~-1mm
+
+**Large position error on first scan point**
+- Cause: Stage was not properly homed before scan
+- Solution: Enable `home_before_scan: true` in config
+- Or manually home via GUI button before starting scan
+
+**USB communication errors**
+- Ensure FTDI drivers are installed
+- Check USB cable and connection
+- Only one application can access a stage at a time
+- Close Kinesis software if running
+
+**Scan takes too long**
+- Each ODMR measurement adds ~5-10 seconds per point
+- Homing adds ~30-60 seconds per axis at scan start
+- Consider: fewer points, faster velocity, skip homing if position is known good
+
+### Debug Logging
+
+Enable verbose logging in config:
+```yaml
+global:
+    log_level: DEBUG
+```
+
+Key log messages to watch:
+- `"Homing x-axis..."` - Homing started
+- `"x-axis homed in X.Xs"` - Homing complete
+- `"Point N at x=X.XXmm, y=Y.YYmm"` - Each measurement point position
+- `"Position error..."` - Position verification failed
