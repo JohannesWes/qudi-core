@@ -362,11 +362,33 @@ self.module_state.lock()
 
 # Unlock on completion
 self.module_state.unlock()
+```
 
-# Check before save
-if self.module_state() == 'locked':
-    self.log.error('Cannot save during scan')
+### Saving During Paused Scans
+
+Saving is allowed when:
+- Scan state is **IDLE** (no scan in progress)
+- Scan state is **PAUSED** (data is stable, safe to save)
+
+Saving is blocked when:
+- Scan state is **RUNNING** (data actively being modified)
+- Scan state is **STOPPING** (transitional cleanup state)
+
+```python
+# Check scan state, not just module_state
+if self._scan_state == ScanState.RUNNING:
+    self.log.error('Unable to save. Pause the scan first.')
     return
+
+# Handle already-locked state (e.g., paused scan)
+already_locked = (self.module_state() == 'locked')
+if not already_locked:
+    self.module_state.lock()
+try:
+    # ... save operations ...
+finally:
+    if not already_locked:
+        self.module_state.unlock()
 ```
 
 ---
