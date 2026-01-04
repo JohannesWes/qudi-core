@@ -133,8 +133,10 @@ class ModuleManager(QtCore.QObject):
     def remove_module(self, module_name, ignore_missing=False, emit_change=True):
         with self._lock:
             module = self._modules.pop(module_name, None)
-            if module is None and not ignore_missing:
-                raise KeyError(f'No module with name "{module_name}" registered.')
+            if module is None:
+                if not ignore_missing:
+                    raise KeyError(f'No module with name "{module_name}" registered.')
+                return  # Nothing to do if module already removed
             module.deactivate()
             module.sigStateChanged.disconnect(self.sigModuleStateChanged)
             module.sigAppDataChanged.disconnect(self.sigModuleAppDataChanged)
