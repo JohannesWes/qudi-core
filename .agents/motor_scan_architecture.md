@@ -20,8 +20,10 @@ The Motor XY Scan module provides motorized XY scanning functionality with synch
                                 │ Connector: motor_scan_logic
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      motor_scan_logic.py                            │
+│                    motor_scan/scan_logic.py                         │
 │                       (MotorScanLogic)                              │
+│         [combines: MotorControlMixin, DataProcessingMixin,          │
+│                    DataSavingMixin]                                 │
 └───────┬───────────────────┬──────────────────┬─────────────────┬────┘
         │                   │                  │                 │
         │ motor_hardware    │ odmr_logic       │ time_series     │ odmr_freq_tracking
@@ -38,7 +40,12 @@ The Motor XY Scan module provides motorized XY scanning functionality with synch
 
 | Component | Path |
 |-----------|------|
-| Logic | `qudi-iqo-modules/src/qudi/logic/motor_scan_logic.py` |
+| Logic Package | `qudi-iqo-modules/src/qudi/logic/motor_scan/` |
+| - Main Logic | `qudi-iqo-modules/src/qudi/logic/motor_scan/scan_logic.py` |
+| - Data Structures | `qudi-iqo-modules/src/qudi/logic/motor_scan/data_structures.py` |
+| - Motor Control Mixin | `qudi-iqo-modules/src/qudi/logic/motor_scan/motor_control.py` |
+| - Data Processing Mixin | `qudi-iqo-modules/src/qudi/logic/motor_scan/data_processing.py` |
+| - Data Saving Mixin | `qudi-iqo-modules/src/qudi/logic/motor_scan/data_saving.py` |
 | GUI | `qudi-iqo-modules/src/qudi/gui/motor_scan/motor_scan_gui.py` |
 | Motor Interface | `qudi-iqo-modules/src/qudi/interface/motor_interface.py` |
 | Thorlabs Hardware | `qudi-iqo-modules/src/qudi/hardware/motor/thorlabs_kdc101_kinesis.py` |
@@ -50,7 +57,7 @@ The Motor XY Scan module provides motorized XY scanning functionality with synch
 
 ## Core Data Structures
 
-Defined in `motor_scan_logic.py`:
+Defined in `motor_scan/data_structures.py`:
 
 | Class | Purpose |
 |-------|---------|
@@ -322,3 +329,19 @@ Key log messages:
 | 2024-12 | Added: PDF thumbnails, per-pixel ODMR saving, homing support |
 | 2025-01 | Fixed: Abort not stopping motors, homing verification |
 | 2026-01 | Added: CONTINUOUS_FREQ_TRACK mode, lock monitoring |
+| 2026-01 | Refactored: Split into modular package (motor_scan/) |
+
+---
+
+## Bug Fixes (2026-01 Refactoring)
+
+**CONTINUOUS_FREQ_TRACK initialization bug**: The original `initialize_data_arrays()` method only handled `CONTINUOUS_STREAM` and `STEP_ODMR` modes explicitly. For `CONTINUOUS_FREQ_TRACK`, the `stream_data_mean` and `stream_data_raw` arrays were not initialized, causing potential runtime errors.
+
+**Fix**: Changed condition in `data_structures.py`:
+```python
+# Before (bug):
+if self.scan_mode == ScanMode.CONTINUOUS_STREAM:
+
+# After (fixed):
+if self.scan_mode in (ScanMode.CONTINUOUS_STREAM, ScanMode.CONTINUOUS_FREQ_TRACK):
+```
