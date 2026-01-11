@@ -307,6 +307,47 @@ class MyModule(Base):
 
 Logs are written to rotating daily files in `<user_home>/qudi/log/`.
 
+## Debugging - Accessing Qudi Logs
+
+When debugging issues, check the qudi log files:
+
+**Log Location (this user):**
+```
+C:\Users\aj92uwef\qudi\log\
+```
+
+**Log Files:**
+- `qudi.log` - Current/most recent session (typically 10-50 KB)
+- `qudi.log.1` through `qudi.log.5` - Rotated older logs (can be 100KB - 1MB+)
+
+**Reading Strategies:**
+```bash
+# List log files with sizes
+ls -la "C:\Users\aj92uwef\qudi\log"
+
+# Read current session log (usually small enough to read fully)
+# Use Read tool on: C:\Users\aj92uwef\qudi\log\qudi.log
+
+# For large log files, read last N lines
+tail -n 100 "C:\Users\aj92uwef\qudi\log\qudi.log"
+
+# Search for errors in logs
+grep -i "error\|warning\|exception" "C:\Users\aj92uwef\qudi\log\qudi.log"
+```
+
+**What to Look For:**
+- Module activation errors during startup
+- Hardware connection failures
+- Qt threading warnings (e.g., `QObject::startTimer`)
+- Timeout errors from hardware modules
+- Exception tracebacks
+
+**PyRPL Logs:**
+PyRPL logs are integrated into the qudi log (prefixed with `pyrpl.`). Look for:
+- `pyrpl.redpitaya` - Connection status
+- Scan module warnings about "busy" or "already running"
+- Timeout messages from `wait_done()`
+
 ## Resources
 
 - Documentation: https://ulm-iqo.github.io/qudi-core/
