@@ -521,7 +521,9 @@ def fit_hyperfine(
             plt.show()  # Blocks execution until plot window is closed
 
         # Close the figure window if it was created
-        plt.close(fig_result)
+    plt.close(fig_result)
+
+
 
     # --- Return Results ---
     return {
