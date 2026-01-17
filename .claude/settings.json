@@ -8,7 +8,6 @@
       "Read(./build/**)",
       "Read(./dist/**)",
       "Read(./.env)",
-      "Read(./my_software/**)",
       "Read(./.github/**)",
       "Read(./tests/**)",
       "Read(./.env.*)",
