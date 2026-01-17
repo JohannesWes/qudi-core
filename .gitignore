@@ -31,3 +31,4 @@
 # log files
 *.log
 *.log.*
+/my_software/redpitaya_tools/IQ_calibration/calibration_results/

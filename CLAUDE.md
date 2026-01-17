@@ -255,14 +255,15 @@ qudi-core/
 │   ├── setup/             # Installation guides
 │   └── programming_guidelines/
 ├── qudi-iqo-modules/      # External addon modules
-├── my_software/           # Custom experiment code (RESTRICTED)
+├── my_software/           # Custom experiment code
+│   └── tools/             # Shared utilities (fitting, analysis)
 ├── tests/                 # Test suite (RESTRICTED)
 ├── venv/                  # Virtual environment (RESTRICTED)
 ├── setup.py               # Package installation config
 └── VERSION                # Version string
 ```
 
-**Note**: Claude Code has restricted access to `my_software/`, `tests/`, and `venv/` directories per `.claude/settings.json`.
+**Note**: Claude Code has restricted access to `tests/` and `venv/` directories per `.claude/settings.json`. The `my_software/tools/` directory is accessible for shared utilities like fitting functions.
 
 ## Important Development Patterns
 
