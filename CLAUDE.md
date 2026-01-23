@@ -256,7 +256,8 @@ qudi-core/
 │   └── programming_guidelines/
 ├── qudi-iqo-modules/      # External addon modules
 ├── my_software/           # Custom experiment code
-│   └── tools/             # Shared utilities (fitting, analysis)
+│   ├── tools/             # Shared utilities (fitting, analysis)
+│   └── redpitaya_tools/   # Old redpitaya utilities
 ├── tests/                 # Test suite (RESTRICTED)
 ├── venv/                  # Virtual environment (RESTRICTED)
 ├── setup.py               # Package installation config
@@ -285,14 +286,6 @@ qudi-core/
 - Validate `ConfigOption` values with checker functions
 - Communicate between threads using Qt Signals, not direct calls
 - Module behavior flows from YAML configuration, not hardcoded values
-
-### Remote Module Access
-
-Qudi supports network-based module access via RPC (rpyc):
-- Remote Modules Server for network access (configurable in YAML `global.remote_modules_server`)
-- Namespace Server for local Jupyter/IPython access
-- Optional SSL encryption
-- Allows distributed measurement setups across multiple computers
 
 ### Logging
 
@@ -348,11 +341,3 @@ PyRPL logs are integrated into the qudi log (prefixed with `pyrpl.`). Look for:
 - `pyrpl.redpitaya` - Connection status
 - Scan module warnings about "busy" or "already running"
 - Timeout messages from `wait_done()`
-
-## Resources
-
-- Documentation: https://ulm-iqo.github.io/qudi-core/
-- GitHub Repository: https://github.com/Ulm-IQO/qudi-core/
-- Discussions/Forum: https://github.com/Ulm-IQO/qudi-core/discussions
-- Issues: https://github.com/Ulm-IQO/qudi-core/issues
-- Citation: [Qudi: A modular python suite for experiment control and data processing (SoftwareX 2017)](http://doi.org/10.1016/j.softx.2017.02.001)
