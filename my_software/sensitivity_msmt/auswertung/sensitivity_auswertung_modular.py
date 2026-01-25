@@ -35,27 +35,71 @@ def magnetic_field_from_voltages(voltages, slope, scaling_factor=1):
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-def plot_magnetic_field_time_traces(samples_x_B_field, times, sample_rate, duration, save_fig=False, filename_prefix=None):
+def plot_magnetic_field_time_traces(samples_x_B_field, times, sample_rate, duration, save_fig=False,
+                                    filename_prefix=None, voltage_trace=None):
     """
-    Plot magnetic field noise for {duration} seconds.
+    Plot magnetic field time traces for {duration} seconds with optional voltage secondary axis.
+
+    Creates a 2x1 subplot:
+    - Top: Full duration time trace
+    - Bottom: 1 second time trace
+
+    If voltage_trace is provided, a secondary y-axis shows the voltage scale on the right.
+
+    Args:
+        samples_x_B_field: Magnetic field data in nT
+        times: Time array in seconds
+        sample_rate: Sample rate in Hz
+        duration: Total duration of the time trace in seconds
+        save_fig: Whether to save the figure to PDF
+        filename_prefix: Prefix for the saved filename
+        voltage_trace: Raw voltage/ADC data (optional, for secondary y-axis)
     """
     fig, axs = plt.subplots(2, 1, figsize=(10, 6))
 
-    # Full duration plot - very thin line, no markers
-    axs[0].plot(times[0:int(sample_rate * int(duration))], samples_x_B_field[0:int(sample_rate * int(duration))],
+    n_samples_full = int(sample_rate * int(duration))
+    n_samples_1s = int(sample_rate)
+
+    # --- Top plot: Full duration time trace ---
+    axs[0].plot(times[0:n_samples_full], samples_x_B_field[0:n_samples_full],
                 linewidth=0.05, alpha=0.8, color="dimgray", rasterized=True, marker='', linestyle='-')
     axs[0].grid(alpha=0.3)
     axs[0].set_title(f"{int(duration)} s Time Trace of Magnetic Field Noise")
     axs[0].set_xlabel("Time [s]")
-    axs[0].set_ylabel("Magnetic Field [nT]")
+    axs[0].set_ylabel("Magnetic Field [nT]", color="dimgray")
+    axs[0].tick_params(axis='y', labelcolor="dimgray")
 
-    # 1 second zoom plot - slightly thicker but still thin
-    axs[1].plot(times[0:int(sample_rate)], samples_x_B_field[0:int(sample_rate)], linewidth=0.15,
+    # Add secondary y-axis for voltage if provided
+    if voltage_trace is not None:
+        ax0_voltage = axs[0].twinx()
+        ax0_voltage.set_ylabel("Voltage [V]", color="darkorange")
+        ax0_voltage.tick_params(axis='y', labelcolor="darkorange")
+        # Set voltage axis limits based on data range
+        v_data = voltage_trace[0:n_samples_full]
+        v_min, v_max = np.min(v_data), np.max(v_data)
+        v_margin = (v_max - v_min) * 0.05 if v_max != v_min else 0.1
+        ax0_voltage.set_ylim(v_min - v_margin, v_max + v_margin)
+
+    # --- Bottom plot: 1 second zoom ---
+    axs[1].plot(times[0:n_samples_1s], samples_x_B_field[0:n_samples_1s], linewidth=0.15,
                 color="dimgray", rasterized=True, marker='', linestyle='-')
     axs[1].grid(alpha=0.3)
     axs[1].set_title("1 s Time Trace of Magnetic Field Noise")
     axs[1].set_xlabel("Time [s]")
-    axs[1].set_ylabel("Magnetic Field [nT]")
+    axs[1].set_ylabel("Magnetic Field [nT]", color="dimgray")
+    axs[1].tick_params(axis='y', labelcolor="dimgray")
+
+    # Add secondary y-axis for voltage if provided
+    if voltage_trace is not None:
+        ax1_voltage = axs[1].twinx()
+        ax1_voltage.set_ylabel("Voltage [V]", color="darkorange")
+        ax1_voltage.tick_params(axis='y', labelcolor="darkorange")
+        # Set voltage axis limits based on 1s data range
+        v_data_1s = voltage_trace[0:n_samples_1s]
+        v_min_1s, v_max_1s = np.min(v_data_1s), np.max(v_data_1s)
+        v_margin_1s = (v_max_1s - v_min_1s) * 0.05 if v_max_1s != v_min_1s else 0.1
+        ax1_voltage.set_ylim(v_min_1s - v_margin_1s, v_max_1s + v_margin_1s)
+
     fig.tight_layout()
     if save_fig:
         # Use PDF format for consistent cross-backend compatibility
