@@ -2,11 +2,14 @@
 
 ## Overview
 
-The Motor XY Scan module provides motorized XY scanning functionality with synchronous data acquisition. It supports three acquisition modes:
+The Motor XY Scan module provides motorized XY scanning with synchronous data acquisition. It supports four acquisition modes:
 
-1. **STEP_ODMR**: Motor stops at each grid position, executes an ODMR scan, fits the data, then proceeds
-2. **CONTINUOUS_STREAM**: Motors move continuously while streaming data is binned to grid positions
-3. **CONTINUOUS_FREQ_TRACK**: Motors move continuously, absolute frequency measured from frequency lock
+| Mode | Description |
+|------|-------------|
+| `STEP_ODMR` | Stop at each point, run ODMR scan, fit, proceed |
+| `CONTINUOUS_STREAM` | Move continuously, bin streaming data by position |
+| `CONTINUOUS_FREQ_TRACK` | Move continuously, track absolute frequency from lock |
+| `POSITION_ONLY` | Stage movement only (debugging/alignment) |
 
 ---
 
@@ -14,16 +17,16 @@ The Motor XY Scan module provides motorized XY scanning functionality with synch
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        motor_scan_gui.py                            │
-│                         (MotorScanGui)                              │
+│                     motor_scan_gui.py (MotorScanGui)                │
+│                     pixel_odmr_widget.py (PixelOdmrWidget)          │
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │ Connector: motor_scan_logic
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    motor_scan/scan_logic.py                         │
 │                       (MotorScanLogic)                              │
-│         [combines: MotorControlMixin, DataProcessingMixin,          │
-│                    DataSavingMixin]                                 │
+│         Mixins: ContinuousLineScanMixin, MotorControlMixin,         │
+│                 DataProcessingMixin, DataSavingMixin                │
 └───────┬───────────────────┬──────────────────┬─────────────────┬────┘
         │                   │                  │                 │
         │ motor_hardware    │ odmr_logic       │ time_series     │ odmr_freq_tracking
@@ -40,308 +43,285 @@ The Motor XY Scan module provides motorized XY scanning functionality with synch
 
 | Component | Path |
 |-----------|------|
-| Logic Package | `qudi-iqo-modules/src/qudi/logic/motor_scan/` |
-| - Main Logic | `qudi-iqo-modules/src/qudi/logic/motor_scan/scan_logic.py` |
-| - Data Structures | `qudi-iqo-modules/src/qudi/logic/motor_scan/data_structures.py` |
-| - Motor Control Mixin | `qudi-iqo-modules/src/qudi/logic/motor_scan/motor_control.py` |
-| - Data Processing Mixin | `qudi-iqo-modules/src/qudi/logic/motor_scan/data_processing.py` |
-| - Data Saving Mixin | `qudi-iqo-modules/src/qudi/logic/motor_scan/data_saving.py` |
-| GUI | `qudi-iqo-modules/src/qudi/gui/motor_scan/motor_scan_gui.py` |
-| Motor Interface | `qudi-iqo-modules/src/qudi/interface/motor_interface.py` |
-| Thorlabs Hardware | `qudi-iqo-modules/src/qudi/hardware/motor/thorlabs_kdc101_kinesis.py` |
-| Motor Dummy | `qudi-iqo-modules/src/qudi/hardware/dummy/motor_dummy.py` |
-| Fit Functions | `my_software/tools/fitting.py` |
-| Example Config | `C:\Users\aj92uwef\qudi\config\motor_scan_freq_tracking.cfg` |
+| **Logic Package** | `qudi-iqo-modules/src/qudi/logic/motor_scan/` |
+| **GUI** | `qudi-iqo-modules/src/qudi/gui/motor_scan/` |
+| **Motor Interface** | `qudi-iqo-modules/src/qudi/interface/motor_interface.py` |
+| **Hardware** | `qudi-iqo-modules/src/qudi/hardware/motor/` (Thorlabs, Newport, PI, Zaber, Micos) |
+| **Dummy** | `qudi-iqo-modules/src/qudi/hardware/dummy/motor_dummy.py` |
+| **Fit Functions** | `my_software/tools/fitting.py` |
 
----
-
-## Core Data Structures
-
-Defined in `motor_scan/data_structures.py`:
-
-| Class | Purpose |
-|-------|---------|
-| `ScanMode` | Enum: `CONTINUOUS_STREAM`, `STEP_ODMR`, `CONTINUOUS_FREQ_TRACK` |
-| `ScanPattern` | Enum: `LINE_BY_LINE_X`, `SNAKE_X`, `LINE_BY_LINE_Y`, `SNAKE_Y` |
-| `ScanState` | Enum: `IDLE`, `RUNNING`, `PAUSED`, `STOPPING` |
-| `MotorScanData` | Dataclass holding scan config, positions, and all result arrays |
-
-**MotorScanData key fields:**
-- `scan_axes`, `scan_range`, `scan_resolution` - Configuration
-- `target_positions`, `actual_positions` - Position arrays
-- `stream_data_mean` - For CONTINUOUS modes (channel → 2D array)
-- `odmr_frequency_data`, `odmr_signal_data`, `odmr_fit_results` - For STEP_ODMR
-- `center_frequency`, `linewidth`, `splitting`, `fit_quality` - Derived from fits
-
----
-
-## Signal Flow
-
-### Key Logic Signals
-
-| Signal | Payload | Purpose |
-|--------|---------|---------|
-| `sigScanStateChanged` | `ScanState` | State machine transitions |
-| `sigScanDataUpdated` | (none) | Trigger GUI refresh |
-| `sigScanPointCompleted` | `int, dict` | Per-point progress |
-| `sigScanCompleted` | `MotorScanData` | Scan finished |
-| `sigPositionUpdated` | `dict` | Motor position feedback |
-| `sigLockLostDuringScan` | (none) | Lock lost in FREQ_TRACK mode |
-| `sigHomingStateChanged` | `bool` | Homing started/finished |
-| `_sigNextPoint` | (none) | Internal: advance scan loop |
-
-### GUI ↔ Logic Connection Pattern
+### Logic Package Structure
 
 ```
-GUI → Logic:  action.triggered → logic.start_scan/pause/save
-Logic → GUI:  sigScanDataUpdated → _update_display()
+motor_scan/
+├── __init__.py
+├── scan_logic.py          # Main class, orchestrates all modes
+├── data_structures.py     # ScanMode, ScanState, ScanPattern, MotorScanData
+├── continuous_line_scan.py # ContinuousLineScanMixin - line-by-line scanning
+├── motor_control.py       # MotorControlMixin - movement, homing, position sampling
+├── data_processing.py     # DataProcessingMixin - ODMR fitting, data binning
+└── data_saving.py         # DataSavingMixin - file I/O, figure generation
 ```
 
 ---
 
-## Scan Execution Flow
+## Key Design Decisions
 
 ### Non-Blocking Architecture
 
-The scan uses event-driven, non-blocking execution to keep GUI responsive:
+All scan operations are non-blocking to keep the GUI responsive:
 
 ```
-start_scan() → _sigNextPoint → _process_next_point()
-                                      │
-                               motor.move_abs()
-                               _motor_poll_timer.start()
-                                      │
-                               _on_motor_poll_timeout()
-                               ├─ moving: restart timer
-                               └─ idle: acquire data → _sigNextPoint
+User calls start_scan()
+    ↓
+Emits _sigDoStartScan (queued to logic thread)
+    ↓
+Logic thread: _do_start_scan_async()
+    ↓
+Motor movement via poll timer (50ms interval)
+    ↓
+Data acquisition triggers _sigNextPoint or line completion
+    ↓
+Repeat until scan complete
 ```
 
-### Mode-Specific Acquisition
+**Why:** Qt requires GUI thread to remain responsive. Long-running operations block the event loop.
 
-| Mode | After motor stops... |
-|------|---------------------|
-| STEP_ODMR | Trigger `odmr_logic.start_odmr_scan()`, wait for completion, fit data |
-| CONTINUOUS_STREAM | Collect buffered `time_series_logic` data, compute mean |
-| CONTINUOUS_FREQ_TRACK | Convert FTW→frequency, add to baseline, check lock status |
+### Mixin Architecture
+
+The logic is split into mixins to:
+1. Keep files manageable (~150 KB total across 6 files)
+2. Separate concerns (motor control vs data processing vs saving)
+3. Allow testing individual components
+
+**Inheritance order matters:** `ContinuousLineScanMixin` must come before `MotorControlMixin` to override certain methods.
+
+### Position-Based Data Binning (Continuous Modes)
+
+For `CONTINUOUS_STREAM` and `CONTINUOUS_FREQ_TRACK`, data samples arrive at ~30 kHz but motor position is sampled at 20 Hz. The binning algorithm:
+
+1. Records timestamped positions during line movement
+2. Interpolates crossing times at bin boundaries using `scipy.interpolate.interp1d`
+3. Uses `np.searchsorted` to assign data samples to bins
+4. Calculates mean per bin
+
+See `data_processing.py:_bin_line_data()` for implementation.
+
+**Why position-based (not time-based):** Motor velocity varies (acceleration/deceleration), so equal time bins would give unequal spatial resolution.
+
+### State Machine
+
+```
+IDLE ←→ INITIALIZING → RUNNING ←→ PAUSED
+              ↓            ↓
+           STOPPING ←──────┘
+              ↓
+            IDLE
+```
+
+See `data_structures.py:ScanState` for the enum definition.
 
 ---
 
 ## Thread Safety
 
-- **RecursiveMutex**: All public methods acquire `_thread_lock` before modifying state
-- **Module state machine**: `module_state.lock()` during scan, `unlock()` on completion
-- **Save allowed**: Only in `IDLE` or `PAUSED` states (not `RUNNING` or `STOPPING`)
+| Mechanism | Purpose |
+|-----------|---------|
+| `RecursiveMutex` (`_thread_lock`) | Protects all state modifications |
+| Qt `QueuedConnection` | All cross-thread signal/slot connections |
+| `module_state.lock()` | Qudi framework lock during scan |
+
+**Rule:** All public `@Slot` methods acquire `_thread_lock` at entry.
+
+---
+
+## Scan Execution Flows
+
+### STEP_ODMR (Point-by-Point)
+
+```
+start_scan() → _sigDoStartScan
+    ↓
+Initialize MotorScanData, create scan folder
+    ↓
+For each point:
+    motor.move_abs(target) → poll until arrived
+        ↓
+    odmr_logic.start_odmr_scan() → wait for sigScanStateUpdated
+        ↓
+    fit_hyperfine() → store results
+        ↓
+    Save fit plot (optional)
+    ↓
+Emit sigScanCompleted
+```
+
+### CONTINUOUS_STREAM / CONTINUOUS_FREQ_TRACK (Line-by-Line)
+
+```
+start_scan() → _sigDoStartScan
+    ↓
+Connect to time_series sigNewRawData
+    ↓
+For each line:
+    motor.move_abs(line_start) → poll until arrived
+        ↓
+    Start position sampling (20 Hz)
+    motor.move_abs(line_end)
+        ↓
+    While moving: buffer incoming data
+        ↓
+    On arrival: _bin_line_data()
+    ↓
+Disconnect signals, emit sigScanCompleted
+```
+
+### Lock Loss Handling (CONTINUOUS_FREQ_TRACK)
+
+Lock status polled every 500ms. On lock loss:
+1. Emit `sigLockLostDuringScan`
+2. Transition to `PAUSED`
+3. User re-establishes lock, calls `resume_scan()`
+4. Zero-crossing history updated, scan continues
+
+---
+
+## Configuration
+
+### Key ConfigOptions
+
+| Option | Default | Notes |
+|--------|---------|-------|
+| `default_scan_mode` | `'STEP_ODMR'` | |
+| `continuous_line_mode` | `True` | Enable line-by-line (vs point-by-point) for continuous modes |
+| `position_sample_interval` | `0.05` | 20 Hz position sampling |
+| `position_poll_interval` | `0.05` | 50ms motor polling |
+| `odmr_fit_function` | `'fit_hyperfine'` | From `my_software.tools.fitting` |
+
+See `scan_logic.py` for full list with defaults.
+
+### Example Configuration
+
+```yaml
+hardware:
+    thorlabs_xy_stage:
+        module.Class: 'motor.thorlabs_kdc101_kinesis.ThorlabsKDC101Kinesis'
+        options:
+            axis_config:
+                x: {serial: 27XXXXXX, pos_min: 0.0, pos_max: 0.050}
+                y: {serial: 27YYYYYY, pos_min: 0.0, pos_max: 0.050}
+
+logic:
+    motor_scan_logic:
+        module.Class: 'motor_scan.scan_logic.MotorScanLogic'
+        connect:
+            motor_hardware: thorlabs_xy_stage
+            odmr_logic: odmr_logic           # For STEP_ODMR
+            time_series_logic: time_series   # For CONTINUOUS_*
+        options:
+            default_scan_mode: 'STEP_ODMR'
+            continuous_line_mode: true
+
+gui:
+    motor_scan_gui:
+        module.Class: 'motor_scan.motor_scan_gui.MotorScanGui'
+        connect:
+            motor_scan_logic: motor_scan_logic
+```
 
 ---
 
 ## Data Storage
 
-### File Organization
+### Output Structure
 
 ```
-<data_root>/YYYY/MM/YYYY-MM-DD/motor_scan_logic/
-    YYYYMMDD-HHMM-SS_<nametag>_motor_scan_<MODE>/
-        ├── center_frequency.dat          # 2D data + metadata header
-        ├── center_frequency.pdf          # Plot thumbnail
-        ├── linewidth.dat
-        ├── linewidth.pdf
-        ├── fit_quality.dat
-        ├── odmr_fits/                    # Per-pixel fit plots (if enabled)
-        │   └── pixel_XXX_YYY_fit.png
-        └── odmr_raw_per_pixel/           # Raw ODMR data per pixel
-            └── pixel_XXX_YYY_odmr.dat
+<data_dir>/YYYYMMDD-HHMM-SS_<tag>_motor_scan_<MODE>/
+├── center_frequency.dat     # 2D data + metadata header
+├── center_frequency.pdf     # Thumbnail
+├── linewidth.dat/pdf
+├── splitting.dat/pdf
+├── fit_quality.dat/pdf
+├── positions_target.dat
+├── positions_actual.dat
+├── odmr_raw_per_pixel/      # STEP_ODMR only
+│   └── pixel_x{ix:03d}_y{iy:03d}_odmr.dat
+└── odmr_fits/               # If save_odmr_fit_plots=True
+    └── pixel_x{ix:03d}_y{iy:03d}.pdf
 ```
 
-### Data File Format
+### File Format
 
-Files use qudi's standard format: metadata header followed by 2D array data. See `qudi.util.datastorage` for details.
+`.dat` files: Tab-separated with `# key: value` metadata header. Load with `np.loadtxt(file, comments='#')`.
 
 ---
 
 ## Hardware Interface
 
-The `MotorInterface` (in `motor_interface.py`) defines required methods:
+The `MotorInterface` (in `motor_interface.py`) defines the contract. Key methods:
 
-| Method | Purpose |
-|--------|---------|
-| `get_constraints()` | Return axis limits, velocity ranges |
-| `move_abs(param_dict)` | Move to absolute position (non-blocking) |
-| `move_rel(param_dict)` | Move relative amount |
-| `get_pos()` | Get current position dict |
-| `get_status()` | Get movement status (0=idle, non-zero=moving) |
-| `abort()` | Emergency stop |
-| `calibrate()` | Home/calibrate axes |
-| `get_velocity()` / `set_velocity()` | Velocity control |
+- `move_abs(param_dict)` - Non-blocking absolute move
+- `get_pos()` - Current position
+- `get_status()` - Movement status (0=idle)
+- `calibrate()` - Home/calibrate
+- `get_constraints()` - Axis limits and capabilities
 
-### ThorlabsKDC101Kinesis Extensions
-
-Additional methods beyond interface (see hardware file for details):
-- `move_abs_sync()` - Blocking move with position verification
-- `wait_for_idle()` - Wait for movement completion
-- `is_moving()` - Check if any axis moving
-- `list_devices()` / `find_kdc101_devices()` - Device discovery
-
-### Hardware Specifications (MTS50-Z8)
-
-| Spec | Value |
-|------|-------|
-| Travel Range | 50 mm |
-| Encoder Resolution | 29 nm |
-| Min Repeatable Increment | 0.8 µm |
-| Home Position Accuracy | ±4 µm |
-| Backlash | <6 µm |
-| Max Velocity | 2.4 mm/s |
-
----
-
-## Scan Pattern Implementation
-
-### SNAKE_X Pattern (default)
-
-```
-Y
-▲
-│  ←←←←←←
-│  │
-│  ──────▶
-│  │
-│  ←←←←←←
-│  │
-│  ──────▶ Start
-└──────────────▶ X
-```
-
-The `point_index_to_grid_index()` method in `MotorScanData` handles conversion from linear index to (ix, iy) grid coordinates, accounting for snake direction reversal on odd rows.
-
-**Data array convention**: `array[ix, iy]` (matrix indexing). For `imshow()` display, transpose: `data.T`
-
----
-
-## ConfigOptions & StatusVariables
-
-### ConfigOptions (in config file)
-
-| Name | Default | Description |
-|------|---------|-------------|
-| `default_scan_mode` | `'STEP_ODMR'` | Initial scan mode |
-| `position_poll_interval` | `0.05` | Motor poll interval (s) |
-| `require_fit_function` | `True` | Warn if fit unavailable |
-| `save_thumbnails` | `True` | Save PDF plots |
-| `save_odmr_fit_plots` | `True` | Save per-pixel fit plots |
-| `home_before_scan` | `False` | Home stages before each scan |
-| `lock_status_poll_interval` | `0.5` | Lock poll for FREQ_TRACK mode (s) |
-| `fit_feature_prominence` | `0.02` | Peak detection threshold |
-| `fit_n_most_prominent_peaks` | `5` | Max peaks to fit |
-
-### StatusVariables (persisted)
-
-| Name | Default | Description |
-|------|---------|-------------|
-| `scan_ranges` | `{'x': (0, 0.01), 'y': (0, 0.01)}` | Scan range per axis (m) |
-| `scan_resolution` | `{'x': 10, 'y': 10}` | Points per axis |
-| `active_scan_mode` | `None` | Current mode |
-| `active_scan_pattern` | `'SNAKE_X'` | Current pattern |
-
----
-
-## Homing
-
-### Why Homing Matters
-- Establishes absolute position reference (encoder zero)
-- Eliminates accumulated positioning errors
-- Required before first scan for accurate positioning
-
-### Homing Behavior
-1. Stage moves to negative limit switch
-2. Moves forward by configured offset (~1 mm)
-3. Encoder zero reference established
-4. Position after homing is near 0 (may show ~-1mm due to offset - this is normal)
-
-### GUI Integration
-- "Home Stages" button with confirmation dialog
-- Disabled during active scans
-- Executes sequentially (X then Y)
-- Takes ~30-60s per axis
+Optional methods (checked with `hasattr`): `is_moving()`, `move_abs_sync()`, `wait_for_idle()`
 
 ---
 
 ## Extension Points
 
-### Adding New Scan Modes
+### Adding a New Scan Mode
 
-1. Add to `ScanMode` enum
-2. Add initialization branch in `start_scan()`
-3. Add data collection in `_on_motor_poll_timeout()`
-4. Add result processing in `_advance_to_next_point()`
-5. Update `save_scan_data()` for new data types
+1. Add to `ScanMode` enum in `data_structures.py`
+2. Add initialization in `scan_logic.py:_do_start_scan_async()`
+3. Add data collection (new mixin or extend existing)
+4. Update `data_saving.py:save_scan_data()` for new data types
+5. Update GUI if needed
 
-### Adding New Fit Functions
+### Adding a New Fit Function
 
 Fit function must return dict with keys:
 - `zero_crossing_frequencies` (Hz)
 - `linewidths` (Hz)
 - `n_features_found`
 
+See `my_software/tools/fitting.py:fit_hyperfine()` for reference.
+
 ---
 
 ## Troubleshooting
 
-### Common Issues
-
 | Problem | Solution |
 |---------|----------|
-| "Could not load fit function" | Ensure `my_software` package in PYTHONPATH |
-| Stages not homing / instant completion | Fixed: implementation uses `force=True` |
-| Position ~-1mm after homing | Normal - this is the home offset |
-| Large error on first point | Enable `home_before_scan: true` |
-| USB communication errors | Close Kinesis software, check USB cable |
-| Scan too slow | Reduce points, increase velocity |
-| Homing fails after abort | Fixed: abort now calls `motor.abort()` |
+| "Could not load fit function" | Add `my_software` to PYTHONPATH |
+| Position ~-1mm after homing | Normal - home offset |
+| USB communication errors | Close Kinesis software, check cable |
+| Lock lost during scan | Re-establish lock, then `resume_scan()` |
 
-### Debug Logging
-
-Enable in config:
+Enable debug logging:
 ```yaml
 global:
     log_level: DEBUG
 ```
 
-Key log messages:
-- `"Homing x-axis..."` / `"x-axis homed in X.Xs"`
-- `"Point N at x=X.XXmm, y=Y.YYmm"`
-- `"Position error..."` (verification failed)
+---
+
+## Known Issues / Fixes
+
+Documented in code comments:
+
+1. **Race condition in `_resume_continuous_line()`** - Buffer must be prepared before timer starts
+2. **Time alignment in binning** - Both position and data samples aligned to `_line_scan_start_time`
+3. **Motor may stop short** - 1mm threshold validation, warns if short
+4. **Stale position data** - Detects identical consecutive samples
 
 ---
 
-## Related Modules
+## Related Documentation
 
-- `odmr_logic.py` - ODMR measurement
-- `time_series_reader_logic.py` - Continuous streaming
-- `scanning_probe_logic.py` - Similar architecture for piezo scanning
-
----
-
-## Version History
-
-| Date | Changes |
-|------|---------|
-| 2024-12 | Initial: STEP_ODMR, CONTINUOUS_STREAM, scan patterns, Thorlabs driver |
-| 2024-12 | Added: PDF thumbnails, per-pixel ODMR saving, homing support |
-| 2025-01 | Fixed: Abort not stopping motors, homing verification |
-| 2026-01 | Added: CONTINUOUS_FREQ_TRACK mode, lock monitoring |
-| 2026-01 | Refactored: Split into modular package (motor_scan/) |
-
----
-
-## Bug Fixes (2026-01 Refactoring)
-
-**CONTINUOUS_FREQ_TRACK initialization bug**: The original `initialize_data_arrays()` method only handled `CONTINUOUS_STREAM` and `STEP_ODMR` modes explicitly. For `CONTINUOUS_FREQ_TRACK`, the `stream_data_mean` and `stream_data_raw` arrays were not initialized, causing potential runtime errors.
-
-**Fix**: Changed condition in `data_structures.py`:
-```python
-# Before (bug):
-if self.scan_mode == ScanMode.CONTINUOUS_STREAM:
-
-# After (fixed):
-if self.scan_mode in (ScanMode.CONTINUOUS_STREAM, ScanMode.CONTINUOUS_FREQ_TRACK):
-```
+- Motor interface: `motor_interface.py` docstrings
+- Data structures: `data_structures.py` (MotorScanData dataclass)
+- Fit functions: `my_software/tools/fitting.py`
+- Similar architecture: `scanning_probe_logic.py` (piezo scanning)
