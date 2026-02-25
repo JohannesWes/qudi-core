@@ -182,13 +182,13 @@ def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, 
         filter_frequencies = []
         for n in range(1, max_harmonic + 1):
             harmonic = 50 * n
-            # Include harmonic and neighboring bins (±1 Hz)
-            for offset in [-1, 0, 1]:
+            # Include harmonic and neighboring bins (±3 Hz)
+            for offset in range(-3, 4):
                 freq = harmonic + offset
                 if sensitivity_f_min <= freq <= sensitivity_f_max:
                     filter_frequencies.append(freq)
 
-    hanning_noise_floor, bandwidth = calculate_asd_noise_floor(
+    hanning_noise_floor, hanning_noise_floor_rms, bandwidth = calculate_asd_noise_floor(
         frequencies, asd_hanning, sensitivity_f_min, sensitivity_f_max,
         filter_frequencies=filter_frequencies, filter_intervals=None
     )
@@ -224,7 +224,7 @@ def plot_asds(samples_x_B_field, sample_rate, duration, f_ENBW, save_fig=False, 
     plt.close(fig)
 
     return {"frequencies": welch_x_hanning[0], "asd_hanning": asd_hanning, "asd_boxcar": asd_boxcar, "asd_blackmanharris": asd_blackmanharris,
-            "sensitivity": hanning_noise_floor, "sensitivity_std": sensitivity_std,
+            "sensitivity": hanning_noise_floor, "sensitivity_rms": hanning_noise_floor_rms, "sensitivity_std": sensitivity_std,
             "sensitivity_f_min": sensitivity_f_min, "sensitivity_f_max": sensitivity_f_max,
             "exclude_50hz_harmonics": exclude_50hz_harmonics}
 
@@ -243,8 +243,9 @@ def calculate_asd_noise_floor(freqs, asd_values, f1, f2, filter_frequencies=None
         filter_intervals (list of tuples, optional): Frequency intervals to filter out from the ASD data.
 
     Returns:
-        tuple: (mean_asd, equivalent_bandwidth)
-            mean_asd (float): Mean ASD value within the specified frequency range.
+        tuple: (mean_asd, rms_asd, equivalent_bandwidth)
+            mean_asd (float): Arithmetic mean ASD value within the specified frequency range.
+            rms_asd (float): RMS (root-mean-square) ASD value within the specified frequency range.
             equivalent_bandwidth (float): Adjusted bandwidth after filtering.
     """
     # Convert inputs to numpy arrays
@@ -280,16 +281,18 @@ def calculate_asd_noise_floor(freqs, asd_values, f1, f2, filter_frequencies=None
     freqs = freqs[within_range_mask]
     asd_values = asd_values[within_range_mask]
 
-    # Compute mean ASD and handle the case where no frequencies remain
+    # Compute mean and RMS ASD, handle the case where no frequencies remain
     if len(freqs) == 0:
         mean_asd = float('nan')
+        rms_asd = float('nan')
         equivalent_bandwidth = 0.0
     else:
         mean_asd = np.mean(asd_values)
+        rms_asd = np.sqrt(np.mean(asd_values**2))
         # The original logic returns the 'bandwidth' variable directly
         equivalent_bandwidth = bandwidth
 
-    return mean_asd, equivalent_bandwidth
+    return mean_asd, rms_asd, equivalent_bandwidth
 
 
 
