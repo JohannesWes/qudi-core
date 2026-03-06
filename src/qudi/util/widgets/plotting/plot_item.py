@@ -86,13 +86,40 @@ class DataImageItem(_ImageItem):
             x_min, x_max = min(extent[0]), max(extent[0])
             y_min, y_max = min(extent[1]), max(extent[1])
             if adjust_for_px_size:
-                if self.image.shape[0] > 1 and self.image.shape[1] > 1:
+                # Handle each axis independently (supports line scans where one dim is 1)
+                if self.image.shape[0] > 1 and (x_max - x_min) > 0:
                     half_px_x = (x_max - x_min) / (2 * (self.image.shape[0] - 1))
+                else:
+                    half_px_x = 0.0
+                if self.image.shape[1] > 1 and (y_max - y_min) > 0:
                     half_px_y = (y_max - y_min) / (2 * (self.image.shape[1] - 1))
-                    x_min -= half_px_x
-                    x_max += half_px_x
-                    y_min -= half_px_y
-                    y_max += half_px_y
+                else:
+                    half_px_y = 0.0
+                x_min -= half_px_x
+                x_max += half_px_x
+                y_min -= half_px_y
+                y_max += half_px_y
+
+            # Guard against zero-extent in either dimension (degenerate line scan)
+            width = x_max - x_min
+            height = y_max - y_min
+            if width == 0.0 and height > 0.0:
+                # Degenerate X: synthesize thin strip width (one pixel of the Y axis)
+                strip = height / max(self.image.shape[1], 1)
+                x_min -= strip / 2
+                x_max += strip / 2
+            elif height == 0.0 and width > 0.0:
+                # Degenerate Y: synthesize thin strip height (one pixel of the X axis)
+                strip = width / max(self.image.shape[0], 1)
+                y_min -= strip / 2
+                y_max += strip / 2
+            elif width == 0.0 and height == 0.0:
+                # Both degenerate (single point)
+                x_min -= 0.5
+                x_max += 0.5
+                y_min -= 0.5
+                y_max += 0.5
+
             self.setRect(QtCore.QRectF(x_min, y_min, x_max - x_min, y_max - y_min))
 
     def set_image(self, image=None, **kwargs):
