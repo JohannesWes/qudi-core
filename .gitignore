@@ -31,4 +31,5 @@
 # log files
 *.log
 *.log.*
-/my_software/redpitaya_tools/IQ_calibration/calibration_results/
+/my_software/redpitaya_tools/
+/my_software/sensitivity_msmt/
